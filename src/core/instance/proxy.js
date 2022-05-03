@@ -5,7 +5,10 @@ import { warn, makeMap, isNative } from '../util/index'
 
 let initProxy
 
+// 只在开发环境执行代码
 if (process.env.NODE_ENV !== 'production') {
+  // makeMap根据传入参数创建一个map，
+  // 并返回一个函数用于判断传入参数是否在map中
   const allowedGlobals = makeMap(
     'Infinity,undefined,NaN,isFinite,isNaN,' +
     'parseFloat,parseInt,decodeURI,decodeURIComponent,encodeURI,encodeURIComponent,' +
@@ -34,6 +37,7 @@ if (process.env.NODE_ENV !== 'production') {
     )
   }
 
+  // 判断当前JavaScript环境是否原生支持Proxy
   const hasProxy =
     typeof Proxy !== 'undefined' && isNative(Proxy)
 
