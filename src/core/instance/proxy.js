@@ -83,6 +83,7 @@ if (process.env.NODE_ENV !== 'production') {
     if (hasProxy) {
       // determine which proxy handler to use
       const options = vm.$options
+      // 使用vue-loader解析.vue文件时，options.render._withStripped为真值
       const handlers = options.render && options.render._withStripped
         ? getHandler
         : hasHandler

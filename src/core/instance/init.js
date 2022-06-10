@@ -16,7 +16,7 @@ export function initMixin (Vue: Class<Component>) {
   // _init方法做的事情：
   // 1. 给vm定义_uid
   // 2. 给vm定义_isVue标记属性（取值为true），避免vm被观察
-  // 3. 给vm定义$options属性
+  // 3. 合并相关options，给vm定义$options属性
   Vue.prototype._init = function (options?: Object) {
     const vm: Component = this
     // a uid
