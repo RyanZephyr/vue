@@ -17,6 +17,10 @@ export function initMixin (Vue: Class<Component>) {
   // 1. 给vm定义_uid
   // 2. 给vm定义_isVue标记属性（取值为true），避免vm被观察
   // 3. 合并相关options，给vm定义$options属性
+  // 4. 设置render的代理（开发环境为new Proxy()实例，生产环境为自身）
+  // 5. 初始化生命周期、事件、render，调用beforeCreate生命周期钩子
+  // 6. 初始化injection、state、provide，调用created生命周期钩子
+  // 7. 如果提供了el配置项，则将实例挂载到真实DOM
   Vue.prototype._init = function (options?: Object) {
     const vm: Component = this
     // a uid

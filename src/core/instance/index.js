@@ -14,11 +14,11 @@ function Vue(options) {
   this._init(options);
 }
 
-// 向Vue.prototype添加属性方法
-initMixin(Vue);
-stateMixin(Vue);
-eventsMixin(Vue);
-lifecycleMixin(Vue);
-renderMixin(Vue);
+// 向Vue.prototype添加属性方法（挂载实例方法）
+initMixin(Vue); // 添加_init(options)方法
+stateMixin(Vue); // 添加$data $props属性，$set $delete $watch方法
+eventsMixin(Vue); // 添加$on $once $off $emit方法
+lifecycleMixin(Vue); // 添加_update $forceUpdate $destroy方法
+renderMixin(Vue); // 添加helper方法（_s _c等），$nextTick _render方法
 
 export default Vue;

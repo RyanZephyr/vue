@@ -319,14 +319,22 @@ function createWatcher (
   return vm.$watch(expOrFn, handler, options)
 }
 
+// 在Vue.prototype上定义：
+// 1. $data、$props属性
+// 2. $set、$delete方法
+// 3. $watch方法
 export function stateMixin (Vue: Class<Component>) {
   // flow somehow has problems with directly declared definition object
   // when using Object.defineProperty, so we have to procedurally build up
   // the object here.
   const dataDef = {}
   dataDef.get = function () { return this._data }
+
   const propsDef = {}
   propsDef.get = function () { return this._props }
+
+  // 开发环境下劫持$data和$props的setter，
+  // 不允许修改，并给出警告
   if (process.env.NODE_ENV !== 'production') {
     dataDef.set = function () {
       warn(
@@ -339,6 +347,7 @@ export function stateMixin (Vue: Class<Component>) {
       warn(`$props is readonly.`, this)
     }
   }
+
   Object.defineProperty(Vue.prototype, '$data', dataDef)
   Object.defineProperty(Vue.prototype, '$props', propsDef)
 

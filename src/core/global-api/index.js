@@ -18,6 +18,10 @@ import {
   defineReactive
 } from '../util/index'
 
+// 向Vue对象添加util set delete nextTick
+// observable options use mixin extend
+// filter() component() directive()
+// 属性、方法（挂载全局方法）
 export function initGlobalAPI (Vue: GlobalAPI) {
   // config
   const configDef = {}
