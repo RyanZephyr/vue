@@ -264,7 +264,7 @@ export function updateChildComponent (
 
   // update props
   if (propsData && vm.$options.props) {
-    toggleObserving(false)
+    toggleObserving(false) // 指向父组件的props已经处于被观察状态，无需重复observe
     const props = vm._props
     const propKeys = vm.$options._propKeys || []
     for (let i = 0; i < propKeys.length; i++) {

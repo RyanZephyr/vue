@@ -36,6 +36,7 @@ const sharedPropertyDefinition = {
   set: noop
 }
 
+// proxy代理：劫持getter和setter，允许通过obj.key(obj.name)来访问obj.sourceKey.key(obj._data.name)
 export function proxy (target: Object, sourceKey: string, key: string) {
   sharedPropertyDefinition.get = function proxyGetter () {
     return this[sourceKey][key]
@@ -46,6 +47,7 @@ export function proxy (target: Object, sourceKey: string, key: string) {
   Object.defineProperty(target, key, sharedPropertyDefinition)
 }
 
+// 初始化$options中的props methods data computed watch
 export function initState (vm: Component) {
   vm._watchers = []
   const opts = vm.$options
@@ -70,13 +72,20 @@ function initProps (vm: Component, propsOptions: Object) {
   const keys = vm.$options._propKeys = []
   const isRoot = !vm.$parent
   // root instance props should be converted
+  // 如果props来自父组件，那么props相关的数据已经处于被观察状态，
+  // 因此暂时关闭observe，并在initProps结束时重新开启observe
   if (!isRoot) {
     toggleObserving(false)
   }
+
+  // 遍历props
   for (const key in propsOptions) {
     keys.push(key)
+
+    // 校验求值当前prop
     const value = validateProp(key, propsOptions, propsData, vm)
-    /* istanbul ignore else */
+
+    // 使当前prop响应式化
     if (process.env.NODE_ENV !== 'production') {
       const hyphenatedKey = hyphenate(key)
       if (isReservedAttribute(hyphenatedKey) ||
@@ -86,6 +95,7 @@ function initProps (vm: Component, propsOptions: Object) {
           vm
         )
       }
+      // 开发环境下提供自定义setter，阻止在子组件中直接修改父组件传递的props值
       defineReactive(props, key, value, () => {
         if (!isRoot && !isUpdatingChildComponent) {
           warn(
@@ -100,13 +110,16 @@ function initProps (vm: Component, propsOptions: Object) {
     } else {
       defineReactive(props, key, value)
     }
+
     // static props are already proxied on the component's prototype
     // during Vue.extend(). We only need to proxy props defined at
     // instantiation here.
+    // 设置当前prop的代理
     if (!(key in vm)) {
       proxy(vm, `_props`, key)
     }
   }
+
   toggleObserving(true)
 }
 
