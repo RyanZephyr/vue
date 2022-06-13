@@ -125,6 +125,7 @@ function initProps (vm: Component, propsOptions: Object) {
 
 function initData (vm: Component) {
   let data = vm.$options.data
+  // 判断data的类型并取值
   data = vm._data = typeof data === 'function'
     ? getData(data, vm)
     : data || {}
@@ -143,6 +144,7 @@ function initData (vm: Component) {
   let i = keys.length
   while (i--) {
     const key = keys[i]
+    // 在开发环境下与方法重名时发出警告
     if (process.env.NODE_ENV !== 'production') {
       if (methods && hasOwn(methods, key)) {
         warn(
@@ -151,6 +153,7 @@ function initData (vm: Component) {
         )
       }
     }
+    // 与props重名时不设置代理，在开发环境下发出警告
     if (props && hasOwn(props, key)) {
       process.env.NODE_ENV !== 'production' && warn(
         `The data property "${key}" is already declared as a prop. ` +
@@ -158,6 +161,7 @@ function initData (vm: Component) {
         vm
       )
     } else if (!isReserved(key)) {
+      // 不与props重名，且名称不以_或$开头，则设置代理
       proxy(vm, `_data`, key)
     }
   }
@@ -186,6 +190,11 @@ function initComputed (vm: Component, computed: Object) {
   // computed properties are just getters during SSR
   const isSSR = isServerRendering()
 
+  // 遍历所有的computed属性
+  // 1. 获取当前computed属性的getter，如果getter为null则在开发环境下发出警告
+  // 2. 在非服务端渲染的情况下，在_computedWatchers上新建一个Watcher实例
+  // 3. 如果当前computed属性名不与vm实例已有属性存在冲突，则调用definedComputed方法，
+  // 否则，在开发环境下判断具体冲突并发出相应警告。
   for (const key in computed) {
     const userDef = computed[key]
     const getter = typeof userDef === 'function' ? userDef : userDef.get
@@ -229,6 +238,8 @@ export function defineComputed (
   userDef: Object | Function
 ) {
   const shouldCache = !isServerRendering()
+
+  // 设置getter和setter
   if (typeof userDef === 'function') {
     sharedPropertyDefinition.get = shouldCache
       ? createComputedGetter(key)
@@ -242,6 +253,8 @@ export function defineComputed (
       : noop
     sharedPropertyDefinition.set = userDef.set || noop
   }
+
+  // 开发环境下，提供缺省setter来发出警告
   if (process.env.NODE_ENV !== 'production' &&
       sharedPropertyDefinition.set === noop) {
     sharedPropertyDefinition.set = function () {
@@ -251,6 +264,7 @@ export function defineComputed (
       )
     }
   }
+
   Object.defineProperty(target, key, sharedPropertyDefinition)
 }
 
@@ -277,6 +291,12 @@ function createGetterInvoker(fn) {
 
 function initMethods (vm: Component, methods: Object) {
   const props = vm.$options.props
+  // 遍历methods，做两件事：
+  // 1. 在开发环境下给出相关警告：
+  //    · 必须为function类型
+  //    · 命名不能和props冲突
+  //    · 命名不能和Vue实例预留方法冲突
+  // 2. 将方法添加到当前实例上
   for (const key in methods) {
     if (process.env.NODE_ENV !== 'production') {
       if (typeof methods[key] !== 'function') {
@@ -304,6 +324,7 @@ function initMethods (vm: Component, methods: Object) {
 }
 
 function initWatch (vm: Component, watch: Object) {
+  // 遍历watch
   for (const key in watch) {
     const handler = watch[key]
     if (Array.isArray(handler)) {
@@ -316,6 +337,7 @@ function initWatch (vm: Component, watch: Object) {
   }
 }
 
+// 规范化watch参数，然后把规范化后的参数传递给vm.$watch()方法
 function createWatcher (
   vm: Component,
   expOrFn: string | Function,
@@ -326,6 +348,7 @@ function createWatcher (
     options = handler
     handler = handler.handler
   }
+  // watch的handler可以直接声明为定义在method中的回调函数的名称
   if (typeof handler === 'string') {
     handler = vm[handler]
   }
@@ -367,6 +390,7 @@ export function stateMixin (Vue: Class<Component>) {
   Vue.prototype.$set = set
   Vue.prototype.$delete = del
 
+  // 创建Watcher实例、返回unwatchFn()函数
   Vue.prototype.$watch = function (
     expOrFn: string | Function,
     cb: any,
