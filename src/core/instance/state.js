@@ -64,6 +64,8 @@ export function initState (vm: Component) {
   }
 }
 
+// 主要在for循环中做三件事情：
+// props校验和求值 props响应式 props代理
 function initProps (vm: Component, propsOptions: Object) {
   const propsData = vm.$options.propsData || {}
   const props = vm._props = {}
@@ -85,7 +87,7 @@ function initProps (vm: Component, propsOptions: Object) {
     // 校验求值当前prop
     const value = validateProp(key, propsOptions, propsData, vm)
 
-    // 使当前prop响应式化
+    // 调用defineReactive()方法，使当前prop响应式化
     if (process.env.NODE_ENV !== 'production') {
       const hyphenatedKey = hyphenate(key)
       if (isReservedAttribute(hyphenatedKey) ||
@@ -114,7 +116,7 @@ function initProps (vm: Component, propsOptions: Object) {
     // static props are already proxied on the component's prototype
     // during Vue.extend(). We only need to proxy props defined at
     // instantiation here.
-    // 设置当前prop的代理
+    // 调用proxy()方法，设置当前prop的代理
     if (!(key in vm)) {
       proxy(vm, `_props`, key)
     }
