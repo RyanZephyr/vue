@@ -183,7 +183,13 @@ export function defineReactive (
     val = obj[key]
   }
 
+  // 如果shallow参数为true，则不进一步操作
+  // 否则，尝试对val进行observe，创建相应的Observer实例
+  // Observer实例对应被观察的数据对象
+  // 如果val不是对象或是VNode实例，childOb为undefined
+  // 否则，childOb为val对应的Observer实例
   let childOb = !shallow && observe(val)
+  
   Object.defineProperty(obj, key, {
     enumerable: true,
     configurable: true,
@@ -191,8 +197,11 @@ export function defineReactive (
       const value = getter ? getter.call(obj) : val
       if (Dep.target) {
         dep.depend()
+
+        // 如果val有对应的Observer实例，则也进行依赖收集
         if (childOb) {
           childOb.dep.depend()
+          // 如果value是数组的话，对数组每项进行依赖收集
           if (Array.isArray(value)) {
             dependArray(value)
           }

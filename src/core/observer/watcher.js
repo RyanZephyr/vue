@@ -35,10 +35,10 @@ export default class Watcher {
   sync: boolean;
   dirty: boolean;
   active: boolean;
-  deps: Array<Dep>;
-  newDeps: Array<Dep>;
-  depIds: SimpleSet;
-  newDepIds: SimpleSet;
+  deps: Array<Dep>; // 旧Dep列表
+  newDeps: Array<Dep>; // 新Dep列表
+  depIds: SimpleSet; // 旧Dep id集合
+  newDepIds: SimpleSet; // 新Dep id集合
   before: ?Function;
   getter: Function;
   value: any;
@@ -91,6 +91,9 @@ export default class Watcher {
         )
       }
     }
+    // 判断this是否为computed watcher
+    // 只有computed watcher的lazy属性为true
+    // 如果不是computed watcher，则马上调用this.get()进行求值
     this.value = this.lazy
       ? undefined
       : this.get()
@@ -100,10 +103,16 @@ export default class Watcher {
    * Evaluate the getter, and re-collect dependencies.
    */
   get () {
+    // 调用pushTarget()，
+    // 把当前Watcher实例入栈，
+    // 并设置为Dep.target
     pushTarget(this)
+
     let value
+
     const vm = this.vm
     try {
+      // 调用this.getter进行求值
       value = this.getter.call(vm, vm)
     } catch (e) {
       if (this.user) {
@@ -117,9 +126,11 @@ export default class Watcher {
       if (this.deep) {
         traverse(value)
       }
+      // 调用popTarget()进行 出栈 和 重设Dep.target为栈顶Watcher
       popTarget()
       this.cleanupDeps()
     }
+
     return value
   }
 
@@ -128,10 +139,14 @@ export default class Watcher {
    */
   addDep (dep: Dep) {
     const id = dep.id
-    if (!this.newDepIds.has(id)) {
+    if (!this.newDepIds.has(id)) { 
+      // 当前Dep不在新Dep id集合中，则更新newDepIds和newDeps
       this.newDepIds.add(id)
       this.newDeps.push(dep)
-      if (!this.depIds.has(id)) {
+      if (!this.depIds.has(id)) { 
+        // 同时，当前Dep不在旧Dep id集合中，说明未addSub
+        // 因此调用dep.addSub(this)方法，
+        // 将当前Watcher实例添加到dep的subs数组中
         dep.addSub(this)
       }
     }
@@ -140,7 +155,11 @@ export default class Watcher {
   /**
    * Clean up for dependency collection.
    */
+  // 依赖清除的目的：避免无关的依赖发生改变造成组件的重复渲染、watch回调等
   cleanupDeps () {
+    // 遍历deps数组中的Dep，
+    // 如果newDepIds数组中没有当前Dep的id，
+    // 则从当前Dep的订阅者数组中移除当前Watcher实例
     let i = this.deps.length
     while (i--) {
       const dep = this.deps[i]
@@ -148,10 +167,14 @@ export default class Watcher {
         dep.removeSub(this)
       }
     }
+    
+    // 交换newDepIds和depIds的值，并清空newDepIds
     let tmp = this.depIds
     this.depIds = this.newDepIds
     this.newDepIds = tmp
     this.newDepIds.clear()
+
+    // 交换newDeps和deps的值，并清空newDeps
     tmp = this.deps
     this.deps = this.newDeps
     this.newDeps = tmp

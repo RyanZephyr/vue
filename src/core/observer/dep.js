@@ -28,12 +28,14 @@ export default class Dep {
     remove(this.subs, sub)
   }
 
+  // 依赖收集
   depend () {
     if (Dep.target) {
       Dep.target.addDep(this)
     }
   }
 
+  // 派发更新：执行subs中所有watcher的update()方法
   notify () {
     // stabilize the subscriber list first
     const subs = this.subs.slice()
