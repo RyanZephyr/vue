@@ -186,8 +186,8 @@ export default class Watcher {
    * Will be called when a dependency changes.
    */
   update () {
-    /* istanbul ignore else */
-    if (this.lazy) {
+    if (this.lazy) { 
+      // this.lazy为true是computed watcher的标志
       this.dirty = true
     } else if (this.sync) {
       this.run()
@@ -215,6 +215,7 @@ export default class Watcher {
         const oldValue = this.value
         this.value = value
         if (this.user) {
+          // this.user为true表示当前watcher是user watcher
           const info = `callback for watcher "${this.expression}"`
           invokeWithErrorHandling(this.cb, this.vm, [value, oldValue], this.vm, info)
         } else {

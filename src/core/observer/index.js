@@ -43,7 +43,7 @@ export class Observer {
     this.value = value
     this.dep = new Dep()
     this.vmCount = 0
-    // __ob__属性不可枚举
+    // 在数据对象上定义不可枚举的__ob__属性，指向其对应的Observer（即this）
     def(value, '__ob__', this)
 
     // 对于数组和纯对象的响应式化方法不同
