@@ -10,6 +10,7 @@ export let isUsingMicroTask = false
 const callbacks = []
 let pending = false
 
+// 将pending状态还原为false，并遍历执行callbacks数组中的方法
 function flushCallbacks () {
   pending = false
   const copies = callbacks.slice(0)
@@ -38,7 +39,10 @@ let timerFunc
 // UIWebView in iOS >= 9.3.3 when triggered in touch event handlers. It
 // completely stops working after triggering a few times... so, if native
 // Promise is available, we will use it:
-/* istanbul ignore next, $flow-disable-line */
+// 首选Promise，然后是MutationObserver、setImmediate、setTimeout，
+// 用来实现timerFunc
+// 使用Promise或MutationObserver时（均借助microtask队列），
+// 标记isUsingMicroTask为true
 if (typeof Promise !== 'undefined' && isNative(Promise)) {
   const p = Promise.resolve()
   timerFunc = () => {
@@ -65,6 +69,7 @@ if (typeof Promise !== 'undefined' && isNative(Promise)) {
   observer.observe(textNode, {
     characterData: true
   })
+  // timerFunc改变textNode.data从而触发MutationObserver的callback
   timerFunc = () => {
     counter = (counter + 1) % 2
     textNode.data = String(counter)
@@ -84,8 +89,11 @@ if (typeof Promise !== 'undefined' && isNative(Promise)) {
   }
 }
 
+// ctx: context
 export function nextTick (cb?: Function, ctx?: Object) {
   let _resolve
+
+  // 包裹传入的cb并收集到callbacks数组中
   callbacks.push(() => {
     if (cb) {
       try {
@@ -97,11 +105,16 @@ export function nextTick (cb?: Function, ctx?: Object) {
       _resolve(ctx)
     }
   })
+
+  // 如果未处于pending状态，则进入pending状态，
+  // 并调用timerFunc()方法
   if (!pending) {
     pending = true
     timerFunc()
   }
-  // $flow-disable-line
+
+  // 如果没有传入cb并且当前环境支持Promise，
+  // 则返回一个Promise
   if (!cb && typeof Promise !== 'undefined') {
     return new Promise(resolve => {
       _resolve = resolve
