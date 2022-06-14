@@ -238,21 +238,32 @@ export function defineReactive (
  * already exist.
  */
 export function set (target: Array<any> | Object, key: any, val: any): any {
+  // 开发环境下，对未定义的target或原始类型的target发出警告
   if (process.env.NODE_ENV !== 'production' &&
     (isUndef(target) || isPrimitive(target))
   ) {
     warn(`Cannot set reactive property on undefined, null, or primitive value: ${(target: any)}`)
   }
+
+  // target为数组，key是有效的数组索引，直接修改并返回
   if (Array.isArray(target) && isValidArrayIndex(key)) {
     target.length = Math.max(target.length, key)
-    target.splice(key, 1, val)
+    target.splice(key, 1, val) // remove target[key] and insert val there
     return val
   }
+
+  // 如果key已经在target上，并且不在Object.prototype上，
+  // 直接赋值并返回
   if (key in target && !(key in Object.prototype)) {
     target[key] = val
     return val
   }
+
   const ob = (target: any).__ob__
+  // _isVue为true表示target为Vue实例
+  // ob && ob.vmCount为true表示target为根data对象
+  // 我们不应在运行时向Vue实例或根data对象上添加响应式属性
+  // 因此在开发环境下发出警告并直接返回
   if (target._isVue || (ob && ob.vmCount)) {
     process.env.NODE_ENV !== 'production' && warn(
       'Avoid adding reactive properties to a Vue instance or its root $data ' +
@@ -264,6 +275,7 @@ export function set (target: Array<any> | Object, key: any, val: any): any {
     target[key] = val
     return val
   }
+
   defineReactive(ob.value, key, val)
   ob.dep.notify()
   return val
@@ -273,16 +285,24 @@ export function set (target: Array<any> | Object, key: any, val: any): any {
  * Delete a property and trigger change if necessary.
  */
 export function del (target: Array<any> | Object, key: any) {
+  // 开发环境下，对未定义的target或原始类型的target发出警告
   if (process.env.NODE_ENV !== 'production' &&
     (isUndef(target) || isPrimitive(target))
   ) {
     warn(`Cannot delete reactive property on undefined, null, or primitive value: ${(target: any)}`)
   }
+
+  // target为数组，key是有效的数组索引，直接删除并返回
   if (Array.isArray(target) && isValidArrayIndex(key)) {
     target.splice(key, 1)
     return
   }
+
   const ob = (target: any).__ob__
+  // _isVue为true表示target为Vue实例
+  // ob && ob.vmCount为true表示target为根data对象
+  // 我们不应在运行时向Vue实例或根data对象上添加响应式属性
+  // 因此在开发环境下发出警告并直接返回
   if (target._isVue || (ob && ob.vmCount)) {
     process.env.NODE_ENV !== 'production' && warn(
       'Avoid deleting properties on a Vue instance or its root $data ' +
@@ -290,9 +310,14 @@ export function del (target: Array<any> | Object, key: any) {
     )
     return
   }
+
+  // 如果要删除的key并不在target对象上，直接返回
   if (!hasOwn(target, key)) {
     return
   }
+
+  // 通过delete操作符删除target对象上的属性；
+  // 如果target有observer，则派发更新
   delete target[key]
   if (!ob) {
     return
