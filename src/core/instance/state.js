@@ -127,10 +127,12 @@ function initProps (vm: Component, propsOptions: Object) {
 
 function initData (vm: Component) {
   let data = vm.$options.data
-  // 判断data的类型并取值
+  // 判断data是否为函数并取值，并赋给vm._data属性
   data = vm._data = typeof data === 'function'
     ? getData(data, vm)
     : data || {}
+  
+  // 如果data不是纯对象，将data设为空对象{}，在开发模式下发出警告
   if (!isPlainObject(data)) {
     data = {}
     process.env.NODE_ENV !== 'production' && warn(
@@ -139,6 +141,7 @@ function initData (vm: Component) {
       vm
     )
   }
+
   // proxy data on instance
   const keys = Object.keys(data)
   const props = vm.$options.props
@@ -167,7 +170,9 @@ function initData (vm: Component) {
       proxy(vm, `_data`, key)
     }
   }
+
   // observe data
+  // 对根data调用observe方法，并设置asRootData参数为true
   observe(data, true /* asRootData */)
 }
 
