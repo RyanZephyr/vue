@@ -1,4 +1,7 @@
 /* @flow */
+// 类：Observer
+// 方法：toggleObserving、observe、defineReactive、set、del
+// 变量：shouldObserve
 
 import Dep from './dep'
 import VNode from '../vdom/vnode'
@@ -16,14 +19,18 @@ import {
   isServerRendering
 } from '../util/index'
 
+// 获得arrayMethods对象本身的所有非Symbol属性名的数组
+// 只用于一处：当前环境不支持__proto__时，将arrayMethods的所有属性赋给数组对象
 const arrayKeys = Object.getOwnPropertyNames(arrayMethods)
 
 /**
  * In some cases we may want to disable observation inside a component's
  * update computation.
  */
+// shouldObserve在两处被直接调用
 export let shouldObserve: boolean = true
 
+// toggleObserving在四处被完整调用（先toggle到false，再toggle到true）
 export function toggleObserving (value: boolean) {
   shouldObserve = value
 }
@@ -98,6 +105,7 @@ export class Observer {
 }
 
 // helpers
+// 只在Observer类的构造函数中用到
 
 /**
  * Augment a target Object or Array by intercepting
@@ -167,35 +175,71 @@ export function defineReactive (
 ) {
   const dep = new Dep()
 
-  // 包含configurable: false的属性无法响应式化，直接return
-  // configurable: false无法被撤销
+  // 获取obj[key]的descriptor
   const property = Object.getOwnPropertyDescriptor(obj, key)
+
+  // 如果有configurable: false，则obj[key]无法响应式化，直接return
+  // configurable: false无法被撤销
   if (property && property.configurable === false) {
     return
   }
 
   // cater for pre-defined getter/setters
+  // 尝试从obj[key]的descriptor中获得getter和setter
   const getter = property && property.get
   const setter = property && property.set
-  // 未传入val参数，且 没有getter 或者 既有getter也有setter，
-  // 则通过obj[key]设置val
+
+  /** 
+   * 问题一
+   * 下方这个if判断一开始是没有的，这就使得调用defineReactive必须提供val。
+   * 但是提供val的话可能会触发getter，如果val本身是一个accessor。
+   * 这种情况的触发getter可能会造成一些需求上的偏差（比如程序员决定在getter里发出一些请求，并自主决定什么时候触发getter从而发出这些请求）。
+   * 因此，我们希望调用defineReactive不必须提供val，从而避免多余的触发getter。
+   * 
+   * 为了解决上面的问题，通过增加if语句，区分不提供val的两种情况：
+   * 1. obj[key]没有getter，推断是普通类型属性，不会触发额外getter，进入if语句，将obj[key]赋给val，obj[key]初始值具有响应式，最终getter通过val获取值。
+   * 2. obj[key]有getter，要避免触发额外getter，跳过if语句，obj[key]初始值不具有响应式，最终getter通过调用原始getter获取值。
+   * 
+   * 基于上述情况，有了下方的代码：
+   * if (!getter && arguments.length === 2) {
+   *   val = obj[key]
+   * }
+   * 
+   * 问题二
+   * 基于上述改动，有了新的问题：
+   * 对于既有getter也有setter的obj[key]，如果不传入val，
+   * 则observe(val)时val为undefined，从而obj[key]的初始值不会被响应式化，childOb也会是undefined。
+   * 一直到修改obj[key]触发setter，setter中的observe(newVal)才会让obj[key]的新值响应式化。
+   * 
+   * 为了解决上面的问题，我们区分不提供val的两种用法：
+   * 1. 如果想要不触发额外getter，就提供只有getter，没有setter的obj[key]
+   * 2. 否则，对于既有getter，也有setter的obj[key]，我们触发getter设置val
+   * 用法1作为上方问题一的解决方案，不会有多余的触发getter，但初始值也不会被响应式化（不过好像也不需要响应式化，因为没有提供setter，就不会有修改）。
+   * 用法2保证既有getter也有setter的obj[key]和原来一样，初始值会被响应式化。
+   * 此外，我们认为没有 没有getter但是有setter 的情况。
+   * 
+   * 基于上述情况，有了下方的最终代码：
+   */
   if ((!getter || setter) && arguments.length === 2) {
     val = obj[key]
   }
 
-  // 如果shallow参数为true，则不进一步操作
-  // 否则，尝试对val进行observe，创建相应的Observer实例
-  // Observer实例对应被观察的数据对象
-  // 如果val不是对象或是VNode实例，childOb为undefined
-  // 否则，childOb为val对应的Observer实例
+  // 如果shallow参数为true，则不进一步操作；否则，尝试对val进行observe，创建相应的Observer实例。
+  // Observer实例对应被观察的数据对象。
+  // 如果val不是对象（null和undefined都不是对象）或是VNode实例，childOb为undefined；
+  // 否则，childOb为val对应的Observer实例。
   let childOb = !shallow && observe(val)
   
   Object.defineProperty(obj, key, {
     enumerable: true,
     configurable: true,
     get: function reactiveGetter () {
+      // 有getter的话调用getter获得value，没有getter则取传入的val
       const value = getter ? getter.call(obj) : val
+
       if (Dep.target) {
+        // 如果当前有正在进行依赖收集的Watcher，则进行当前数据项的依赖收集
+        // dep为当前数据项getter的闭包中的Dep类实例
         dep.depend()
 
         // 如果val有对应的Observer实例，则也进行依赖收集
@@ -207,18 +251,23 @@ export function defineReactive (
           }
         }
       }
+
       return value
     },
     set: function reactiveSetter (newVal) {
+      // 获取旧值
       const value = getter ? getter.call(obj) : val
-      /* eslint-disable no-self-compare */
+
+      // 如果新值等于旧值，或者newVal和value均为NaN（唯一自身不严格等于自身的值），则视为无改动，直接返回
       if (newVal === value || (newVal !== newVal && value !== value)) {
         return
       }
-      /* eslint-enable no-self-compare */
+
+      // 开发环境下调用customSetter，发出相关警告
       if (process.env.NODE_ENV !== 'production' && customSetter) {
         customSetter()
       }
+
       // #7981: for accessor properties without setter
       if (getter && !setter) return
       if (setter) {
@@ -226,7 +275,10 @@ export function defineReactive (
       } else {
         val = newVal
       }
+
+      // 如果当前数据项为非浅响应式，则调用observe(newVal)，对新值进行递归响应式化
       childOb = !shallow && observe(newVal)
+      // 派发更新
       dep.notify()
     }
   })
@@ -329,6 +381,7 @@ export function del (target: Array<any> | Object, key: any) {
  * Collect dependencies on array elements when the array is touched, since
  * we cannot intercept array element access like property getters.
  */
+// 只在defineReactive方法中用到
 function dependArray (value: Array<any>) {
   for (let e, i = 0, l = value.length; i < l; i++) {
     e = value[i]

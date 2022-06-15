@@ -2,6 +2,7 @@
  * not type checking this file because flow doesn't play well with
  * dynamically accessing methods on Array prototype
  */
+// 对象：arrayMethods
 
 import { def } from '../util/index'
 

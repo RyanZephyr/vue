@@ -1,4 +1,9 @@
 /* @flow */
+// 类：Watcher
+// 只有三个地方新建Watcher类的实例：
+// 1. render watcher: mountComponent方法中
+// 2. computed watcher: initComputed方法中
+// 3. user watcher: Vue.prototype.$watch方法中
 
 import {
   warn,
