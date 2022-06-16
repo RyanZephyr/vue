@@ -45,6 +45,7 @@ export function toggleObserving (value: boolean) {
  * object's property keys into getter/setters that
  * collect dependencies and dispatch updates.
  */
+// 只负责响应式化相应数据对象的所有属性
 export class Observer {
   value: any;
   dep: Dep;
@@ -60,9 +61,9 @@ export class Observer {
     // 在数据对象上定义不可枚举的__ob__属性，指向其对应的Observer（即this）
     def(value, '__ob__', this)
 
-    // 对value进行响应式化：
-    // value为数组时，调用observeArray()方法
-    // value为纯对象时，调用walk()方法
+    // 对value的元素/属性进行响应式化：
+    // value为数组时，调用observeArray()方法响应式化数组元素
+    // value为纯对象时，调用walk()方法响应式化对象属性
     if (Array.isArray(value)) {
       // hasProto判断当前JavaScript环境是否支持__proto__属性
       // 根据具体情况使用不同方法，对数组7种可以改变自身的方法提供响应式支持
@@ -87,6 +88,7 @@ export class Observer {
    * getter/setters. This method should only be called when
    * value type is Object.
    */
+  // 只在Observer类的构造函数中被调用
   // 遍历对象属性，调用defineReactive()方法
   // 递归借助observe()方法实现
   walk (obj: Object) {
@@ -99,6 +101,7 @@ export class Observer {
   /**
    * Observe a list of Array items.
    */
+  // 只在Observer类的构造函数 和 Array异化方法中被调用
   // 遍历数组元素，调用observe()方法
   // 递归借助observe()方法实现
   // 实际上Object.defineProperty方法也可以将数组元素转换为getter/setter，

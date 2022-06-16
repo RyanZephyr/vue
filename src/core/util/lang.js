@@ -30,12 +30,23 @@ export function def (obj: Object, key: string, val: any, enumerable?: boolean) {
 /**
  * Parse simple path.
  */
+
+// unicodeRegExp是一个RegExp对象，调用unicodeRegExp.source获得表达式内容
+// bailRE：[^...]，匹配任何不在...中的字符
+// .$_：. $ _ 三个字符
+// \\d即\d：匹配0-9的数字字符
+// unicodeRegExp.source在[]中为多个字符范围
 const bailRE = new RegExp(`[^${unicodeRegExp.source}.$_\\d]`)
+
 export function parsePath (path: string): any {
+  // 如果path中存在非法字符，直接返回
   if (bailRE.test(path)) {
     return
   }
+  // path中不存在非法字符，按.分割获得数组
   const segments = path.split('.')
+
+  // 返回函数，该函数会被传入vm的引用作为参数，从而获得相应的值
   return function (obj) {
     for (let i = 0; i < segments.length; i++) {
       if (!obj) return

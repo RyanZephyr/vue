@@ -1,9 +1,9 @@
 /* @flow */
 // 类：Watcher
 // 只有三个地方新建Watcher类的实例：
-// 1. render watcher: mountComponent方法中
-// 2. computed watcher: initComputed方法中
-// 3. user watcher: Vue.prototype.$watch方法中
+// 1. render watcher: mountComponent方法中，带有为true的isRenderWatcher参数
+// 2. computed watcher: initComputed方法中，带有lazy: true的options
+// 3. user watcher: Vue.prototype.$watch方法中，带有user: true的options
 
 import {
   warn,
@@ -29,25 +29,29 @@ let uid = 0
  * and fires callback when the expression value changes.
  * This is used for both the $watch() api and directives.
  */
+// 每个Watcher实例都对应一个表达式或函数，观察表达式或函数计算结果的变化：
+// computed watcher
+// user watcher对应watch配置项对象中的key
 export default class Watcher {
   vm: Component;
   expression: string;
   cb: Function;
   id: number;
-  deep: boolean;
-  user: boolean;
-  lazy: boolean;
-  sync: boolean;
+  deep: boolean; // in options，为true时可以发现对象内部值的变化
+  user: boolean; // in options
+  lazy: boolean; // in options
+  sync: boolean; // in options
   dirty: boolean;
   active: boolean;
   deps: Array<Dep>; // 旧Dep列表
   newDeps: Array<Dep>; // 新Dep列表
   depIds: SimpleSet; // 旧Dep id集合
   newDepIds: SimpleSet; // 新Dep id集合
-  before: ?Function;
-  getter: Function;
+  before: ?Function; // in options
+  getter: Function; // 只在该类的get()方法中被调用
   value: any;
 
+  // 构造函数只做一件事：对实例属性赋值。其中expOrFn用于设置this.getter。
   constructor (
     vm: Component,
     expOrFn: string | Function,
@@ -56,11 +60,16 @@ export default class Watcher {
     isRenderWatcher?: boolean
   ) {
     this.vm = vm
+
+    // 如果当前Watcher实例是render watcher，则向vm添加_watcher属性指向该watcher
     if (isRenderWatcher) {
       vm._watcher = this
     }
+
+    // 向vm._watchers数组中添加该watcher（vm._watchers在initState方法中被初始化为数组）
     vm._watchers.push(this)
-    // options
+
+    // options：deep, user, lazy, sync, before
     if (options) {
       this.deep = !!options.deep
       this.user = !!options.user
@@ -70,6 +79,7 @@ export default class Watcher {
     } else {
       this.deep = this.user = this.lazy = this.sync = false
     }
+
     this.cb = cb
     this.id = ++uid // uid for batching
     this.active = true
@@ -78,14 +88,25 @@ export default class Watcher {
     this.newDeps = []
     this.depIds = new Set()
     this.newDepIds = new Set()
+    // 只在开发环境下使用this.expression
     this.expression = process.env.NODE_ENV !== 'production'
       ? expOrFn.toString()
       : ''
+
     // parse expression for getter
+    // 设置this.getter
+    // 只在该类的get()方法中被调用：this.getter.call(this.vm, this.vm)
     if (typeof expOrFn === 'function') {
+      // expOrFn为函数，直接将函数赋给this.getter
       this.getter = expOrFn
     } else {
+      // expOrFn为表达式，
+      // 但是表达式可能是'a'，也可能是'a.x'这种形式，
+      // 通过调用parsePath方法，统一解析并返回一个需要传入vm的getter
       this.getter = parsePath(expOrFn)
+
+      // expOrFn表达式中存在非法字符，无法解析，则this.getter为undefined
+      // 这种情况下，设置this.getter为noop
       if (!this.getter) {
         this.getter = noop
         process.env.NODE_ENV !== 'production' && warn(
@@ -96,9 +117,10 @@ export default class Watcher {
         )
       }
     }
-    // 判断this是否为computed watcher
-    // 只有computed watcher的lazy属性为true
-    // 如果不是computed watcher，则马上调用this.get()进行求值
+
+    // 通过this.lazy判断该watcher是否为computed watcher。
+    // 如果是则this.value取undefined，即暂时不获取computed watcher对应的值
+    // 否则马上调用this.get()进行求值。
     this.value = this.lazy
       ? undefined
       : this.get()
@@ -108,16 +130,13 @@ export default class Watcher {
    * Evaluate the getter, and re-collect dependencies.
    */
   get () {
-    // 调用pushTarget()，
-    // 把当前Watcher实例入栈，
-    // 并设置为Dep.target
+    // 调用pushTarget()，把当前Watcher实例入栈，设置当前Watcher实例为Dep.target
     pushTarget(this)
 
     let value
-
     const vm = this.vm
     try {
-      // 调用this.getter进行求值
+      // 调用this.getter进行求值，同时触发依赖收集。
       value = this.getter.call(vm, vm)
     } catch (e) {
       if (this.user) {
@@ -128,10 +147,13 @@ export default class Watcher {
     } finally {
       // "touch" every property so they are all tracked as
       // dependencies for deep watching
+      // 如果this.deep为true，则触发每个深层属性的依赖收集。
       if (this.deep) {
         traverse(value)
       }
-      // 调用popTarget()进行 出栈 和 重设Dep.target为栈顶Watcher
+
+      // 当前Watcher（即Dep.target）的依赖收集完成，
+      // 调用popTarget()进行 出栈 和 重设Dep.target。
       popTarget()
       this.cleanupDeps()
     }
