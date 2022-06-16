@@ -29,7 +29,8 @@ let uid = 0
  * and fires callback when the expression value changes.
  * This is used for both the $watch() api and directives.
  */
-// 每个Watcher实例都对应一个表达式或函数，观察表达式或函数计算结果的变化：
+// 每个Watcher实例都对应一个表达式或函数，一个表达式或函数可以订阅多个数据项（Dep）
+// Watcher实例观察对应表达式或函数计算结果的变化：
 // computed watcher
 // user watcher对应watch配置项对象中的key
 export default class Watcher {
@@ -43,10 +44,10 @@ export default class Watcher {
   sync: boolean; // in options
   dirty: boolean;
   active: boolean;
-  deps: Array<Dep>; // 旧Dep列表
-  newDeps: Array<Dep>; // 新Dep列表
-  depIds: SimpleSet; // 旧Dep id集合
-  newDepIds: SimpleSet; // 新Dep id集合
+  deps: Array<Dep>; // Dep列表
+  newDeps: Array<Dep>; // 新Dep列表，只用于更新deps
+  depIds: SimpleSet; // Dep id集合
+  newDepIds: SimpleSet; // 新Dep id集合，只用于更新depIds
   before: ?Function; // in options
   getter: Function; // 只在该类的get()方法中被调用
   value: any;
@@ -136,7 +137,12 @@ export default class Watcher {
     let value
     const vm = this.vm
     try {
-      // 调用this.getter进行求值，同时触发依赖收集。
+      // 调用this.getter进行求值，同时触发依赖收集dep.depend()。
+      // dep.depend()调用该Watcher实例的addDep()方法。
+      // addDep()针对性地更新newIds和newDeps。
+      // 依赖收集完成后，调用cleanupDeps方法，
+      // 交换newDepIds和depIds的值，并清空newDepIds，
+      // 交换newDeps和deps的值，并清空newDeps。
       value = this.getter.call(vm, vm)
     } catch (e) {
       if (this.user) {
@@ -164,10 +170,13 @@ export default class Watcher {
   /**
    * Add a dependency to this directive.
    */
+  // 针对性地更新newDepIds newDeps和dep.subs数组
   addDep (dep: Dep) {
     const id = dep.id
+
+    // 当前Dep已经在新Dep id集合中的话，则不需操作。
+    // 当前Dep不在新Dep id集合中，则更新newDepIds和newDeps。
     if (!this.newDepIds.has(id)) { 
-      // 当前Dep不在新Dep id集合中，则更新newDepIds和newDeps
       this.newDepIds.add(id)
       this.newDeps.push(dep)
       if (!this.depIds.has(id)) { 
@@ -182,11 +191,12 @@ export default class Watcher {
   /**
    * Clean up for dependency collection.
    */
-  // 依赖清除的目的：避免无关的依赖发生改变造成组件的重复渲染、watch回调等
+  // 只在本类的get方法中，依赖收集完成后被调用。
+  // 做了两件事：依赖清除；用newDepIds和newDeps更新depIds和deps。
+  // 依赖清除的目的：避免无关的依赖发生改变造成组件的重复渲染、watch回调等。
   cleanupDeps () {
-    // 遍历deps数组中的Dep，
-    // 如果newDepIds数组中没有当前Dep的id，
-    // 则从当前Dep的订阅者数组中移除当前Watcher实例
+    // 依赖清除：遍历deps数组中的Dep，如果newDepIds数组中没有当前Dep的id（订阅关系已不存在），
+    // 则从当前Dep的subs数组中移除当前Watcher实例。
     let i = this.deps.length
     while (i--) {
       const dep = this.deps[i]

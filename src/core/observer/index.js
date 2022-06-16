@@ -240,6 +240,7 @@ export function defineReactive (
   // 如果shallow参数为true，则不进一步深度观测；否则，尝试观测val。
   // 如果val不是对象（null和undefined都不是对象）或是VNode实例，childOb为undefined；
   // 否则，childOb为val对应的Observer实例。
+  // 通过observe(val)递归遍历地定义响应式。
   let childOb = !shallow && observe(val)
   
   Object.defineProperty(obj, key, {
@@ -250,15 +251,19 @@ export function defineReactive (
       const value = getter ? getter.call(obj) : val
 
       // 依赖收集
+      // Dep.target在Watcher类的get方法中，通过调用pushTarget和popTarget方法来设置
       if (Dep.target) {
         // 如果当前有正在进行依赖收集的Watcher，则进行当前数据项的依赖收集
         // dep为当前数据项getter的闭包中的Dep类实例
         dep.depend()
 
-        // 如果val有对应的Observer实例，则也进行依赖收集
+        // 如果val有对应的Observer实例，则也进行相同的依赖收集
         if (childOb) {
+          // 在childOb.dep上收集相同的依赖的目的是使得Vue.set和Vue.del能够通过__ob__.dep派发更新
           childOb.dep.depend()
-          // 如果value是数组的话，对数组每项进行依赖收集
+
+          // 如果value是数组的话，在每项数组元素的__ob__.dep上进行依赖收集，
+          // 使得Vue.set和Vue.del对数组进行操作，也能够通过__ob__.dep派发更新
           if (Array.isArray(value)) {
             dependArray(value)
           }
@@ -305,7 +310,7 @@ export function defineReactive (
  */
 // 问题：直接使用赋值操作符向一个响应式对象添加新属性，新属性不会具有响应式，也不会触发任何更新
 // 解决方案：Vue提供了set方法，用于向一个响应式对象（有相应Observer实例）
-// 添加新响应式属性（确保defineReactive过），并触发视图更新。
+// 添加新响应式属性（确保defineReactive过），并通过__ob__.dep触发视图更新。
 // 添加多个新属性可以这样写：this.obj = Object.assign({}, this.obj, {a: 'a', ...});
 export function set (target: Array<any> | Object, key: any, val: any): any {
   // 开发环境下，对未定义的target或原始类型的target发出警告
@@ -362,7 +367,7 @@ export function set (target: Array<any> | Object, key: any, val: any): any {
  */
 // 问题：直接使用delete删除一个响应式对象的已有属性，不会触发任何更新
 // 解决方案：Vue提供了del方法，用于删除对象的属性。如果对象是响应式的，
-// 确保删除能触发视图更新。
+// 确保删除能触发视图更新（通过__ob__.dep）。
 export function del (target: Array<any> | Object, key: any) {
   // 开发环境下，对未定义的target或原始类型的target发出警告
   if (process.env.NODE_ENV !== 'production' &&
@@ -412,9 +417,14 @@ export function del (target: Array<any> | Object, key: any) {
  */
 // 只在defineReactive方法设置的getter中用到
 function dependArray (value: Array<any>) {
+  // 遍历数组元素，元素为e
   for (let e, i = 0, l = value.length; i < l; i++) {
     e = value[i]
+
+    // e存在且有observer的话，进行e依赖收集
     e && e.__ob__ && e.__ob__.dep.depend()
+    
+    // 如果e是数组，递归调用dependArray方法进行依赖收集
     if (Array.isArray(e)) {
       dependArray(e)
     }
