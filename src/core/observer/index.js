@@ -300,6 +300,10 @@ export function defineReactive (
  * triggers change notification if the property doesn't
  * already exist.
  */
+// 问题：直接使用赋值操作符向一个响应式对象添加新属性，新属性不会具有响应式，也不会触发任何更新
+// 解决方案：Vue提供了set方法，用于向一个响应式对象（有相应Observer实例）
+// 添加新响应式属性（确保defineReactive过），并触发视图更新。
+// 添加多个新属性可以这样写：this.obj = Object.assign({}, this.obj, {a: 'a', ...});
 export function set (target: Array<any> | Object, key: any, val: any): any {
   // 开发环境下，对未定义的target或原始类型的target发出警告
   if (process.env.NODE_ENV !== 'production' &&
@@ -308,7 +312,7 @@ export function set (target: Array<any> | Object, key: any, val: any): any {
     warn(`Cannot set reactive property on undefined, null, or primitive value: ${(target: any)}`)
   }
 
-  // target为数组，key是有效的数组索引，直接修改并返回（会调用数组异化方法）
+  // target为数组，key是有效的数组索引，直接修改并返回（如果target是响应式的，则会调用数组异化方法）
   if (Array.isArray(target) && isValidArrayIndex(key)) {
     target.length = Math.max(target.length, key)
     target.splice(key, 1, val) // remove target[key] and insert val there
@@ -324,10 +328,10 @@ export function set (target: Array<any> | Object, key: any, val: any): any {
 
   const ob = (target: any).__ob__
 
-  // _isVue为true表示target为Vue实例
-  // ob && ob.vmCount为true表示target为根data对象
-  // 我们不应在运行时向Vue实例或根data对象上添加响应式属性
-  // 因此直接返回，在开发环境下发出警告
+  // 我们不应在运行时向 Vue实例或根data对象上 添加响应式属性。
+  // 对于上述行为不予添加，直接返回，在开发环境下发出警告。
+  // _isVue为true表示target为Vue实例；
+  // ob && ob.vmCount为true表示target为根data对象。
   if (target._isVue || (ob && ob.vmCount)) {
     process.env.NODE_ENV !== 'production' && warn(
       'Avoid adding reactive properties to a Vue instance or its root $data ' +
@@ -344,7 +348,7 @@ export function set (target: Array<any> | Object, key: any, val: any): any {
 
   // target是响应式对象，调用defineReactive方法设置响应式属性
   defineReactive(ob.value, key, val)
-  // 派发更新
+  // 派发视图更新
   ob.dep.notify()
   // 返回值
   return val
@@ -353,6 +357,9 @@ export function set (target: Array<any> | Object, key: any, val: any): any {
 /**
  * Delete a property and trigger change if necessary.
  */
+// 问题：直接使用delete删除一个响应式对象的已有属性，不会触发任何更新
+// 解决方案：Vue提供了del方法，用于删除对象的属性。如果对象是响应式的，
+// 确保删除能触发视图更新。
 export function del (target: Array<any> | Object, key: any) {
   // 开发环境下，对未定义的target或原始类型的target发出警告
   if (process.env.NODE_ENV !== 'production' &&
@@ -361,17 +368,19 @@ export function del (target: Array<any> | Object, key: any) {
     warn(`Cannot delete reactive property on undefined, null, or primitive value: ${(target: any)}`)
   }
 
-  // target为数组，key是有效的数组索引，直接删除并返回
+  // target为数组，key是有效的数组索引，调用splice方法来删除
+  // 如果target是响应式对象，那么调用的会是splice相应的异化方法
   if (Array.isArray(target) && isValidArrayIndex(key)) {
     target.splice(key, 1)
     return
   }
 
   const ob = (target: any).__ob__
-  // _isVue为true表示target为Vue实例
-  // ob && ob.vmCount为true表示target为根data对象
-  // 我们不应在运行时向Vue实例或根data对象上添加响应式属性
-  // 因此在开发环境下发出警告并直接返回
+
+  // 我们不应在运行时在 Vue实例或根data对象上 删除响应式属性。
+  // 对于上述行为不予删除，直接返回，在开发环境下发出警告。
+  // _isVue为true表示target为Vue实例；
+  // ob && ob.vmCount为true表示target为根data对象。
   if (target._isVue || (ob && ob.vmCount)) {
     process.env.NODE_ENV !== 'production' && warn(
       'Avoid deleting properties on a Vue instance or its root $data ' +
@@ -380,13 +389,13 @@ export function del (target: Array<any> | Object, key: any) {
     return
   }
 
-  // 如果要删除的key并不在target对象上，直接返回
+  // 如果要删除的key并不在target对象自身上，直接返回
   if (!hasOwn(target, key)) {
     return
   }
 
   // 通过delete操作符删除target对象上的属性；
-  // 如果target有observer，则派发更新
+  // 如果target有observer，则触发视图更新
   delete target[key]
   if (!ob) {
     return
