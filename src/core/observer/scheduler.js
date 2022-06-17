@@ -1,5 +1,10 @@
 /* @flow */
 
+// 导出常量MAX_UPDATE_COUNT，变量currentFlushTimestamp，
+// 方法queueWatcher和queueActivatedComponent
+// 本文件中除了两个导出方法外，所有方法都只在flushSchedulerQueue方法中被调用；
+// flushSchedulerQueue方法只在queueWatcher方法中被调用。
+
 import type Watcher from './watcher'
 import config from '../config'
 import { callHook, activateChildComponent } from '../instance/lifecycle'
@@ -14,17 +19,18 @@ import {
 
 export const MAX_UPDATE_COUNT = 100
 
-const queue: Array<Watcher> = [] // Watcher执行队列
+const queue: Array<Watcher> = [] // watcher异步更新队列
 const activatedChildren: Array<Component> = []
 let has: { [key: number]: ?true } = {} // 防止重复添加Watcher的标志对象
 let circular: { [key: number]: number } = {}
 let waiting = false
-let flushing = false
+let flushing = false // 为true时表示正在对异步更新队列中watcher执行更新
 let index = 0 // 当前遍历的Watcher实例索引
 
 /**
  * Reset the scheduler's state.
  */
+// 只在flushSchedulerQueue方法中被调用。
 function resetSchedulerState () {
   index = queue.length = activatedChildren.length = 0
   has = {}
@@ -42,6 +48,7 @@ function resetSchedulerState () {
 export let currentFlushTimestamp = 0
 
 // Async edge case fix requires storing an event listener's attach timestamp.
+// 只在flushSchedulerQueue方法中被调用
 let getNow: () => number = Date.now
 
 // Determine what event timestamp the browser is using. Annoyingly, the
@@ -68,6 +75,7 @@ if (inBrowser && !isIE) {
 /**
  * Flush both queues and run the watchers.
  */
+// 只在queueWatcher方法中被调用，执行异步更新队列。
 function flushSchedulerQueue () {
   currentFlushTimestamp = getNow()
   flushing = true
@@ -81,7 +89,7 @@ function flushSchedulerQueue () {
   //    user watchers are created before the render watcher)
   // 3. If a component is destroyed during a parent component's watcher run,
   //    its watchers can be skipped.
-  // 按id升序排序
+  // 按watcher id升序排序
   queue.sort((a, b) => a.id - b.id)
 
   // do not cache length because more watchers might be pushed
@@ -90,7 +98,7 @@ function flushSchedulerQueue () {
   for (index = 0; index < queue.length; index++) {
     watcher = queue[index]
 
-    // 如果当前watcher声明了before方法，先执行before方法
+    // 如果当前watcher声明了before方法，先执行before方法。
     if (watcher.before) {
       watcher.before()
     }
@@ -119,10 +127,10 @@ function flushSchedulerQueue () {
   }
 
   // keep copies of post queues before resetting state
-  const activatedQueue = activatedChildren.slice()
-  const updatedQueue = queue.slice()
+  const activatedQueue = activatedChildren.slice() // 存放所有更新了的Vue实例
+  const updatedQueue = queue.slice() // 存放所有更新了的watcher
 
-  // Watcher执行队列执行完毕后，把所有相关状态还原为初始状态
+  // 异步更新队列执行完毕后，还原相关状态。
   resetSchedulerState()
 
   // call component updated and activated hooks
@@ -136,6 +144,7 @@ function flushSchedulerQueue () {
   }
 }
 
+// 只在flushSchedulerQueue方法中被调用
 function callUpdatedHooks (queue) {
   let i = queue.length
   while (i--) {
@@ -158,6 +167,7 @@ export function queueActivatedComponent (vm: Component) {
   activatedChildren.push(vm)
 }
 
+// 只在flushSchedulerQueue方法中被调用
 function callActivatedHooks (queue) {
   for (let i = 0; i < queue.length; i++) {
     queue[i]._inactive = true
@@ -170,20 +180,23 @@ function callActivatedHooks (queue) {
  * Jobs with duplicate IDs will be skipped unless it's
  * pushed when the queue is being flushed.
  */
+// 只在Watcher类的update方法中被调用，将传入watcher放入异步更新队列。
 export function queueWatcher (watcher: Watcher) {
   const id = watcher.id
+
+  // 借助has标记对象避免同一watcher重复入队。
   if (has[id] == null) {
-    // 根据id判断出传入Watcher并不在执行队列中
-    // 对该id进行标记
+    // 根据id判断出传入watcher并不在异步更新队列中，对该id进行标记。
     has[id] = true
 
     if (!flushing) {
-      // 不处于flushing状态，直接将传入Watcher入列
+      // 异步更新队列没有在执行更新，直接将传入watcher追加到队列尾部。
       queue.push(watcher)
     } else {
       // if already flushing, splice the watcher based on its id
       // if already past its id, it will be run next immediately.
-      // 查找Watcher执行队列中适当的位置，插入当前Watcher
+      // 在异步更新队列更新中产生的观察者入队行为，
+      // 则查找异步更新队列中适当的位置，插入传入watcher。
       let i = queue.length - 1
       while (i > index && queue[i].id > watcher.id) {
         i--
@@ -193,16 +206,18 @@ export function queueWatcher (watcher: Watcher) {
 
     // queue the flush
     if (!waiting) {
-      // 不处于waiting状态，表示可以执行当前Watcher队列
+      // 不处于waiting状态，表示可以执行当前Watcher队列，
       // 先将waiting设为true，然后调用nextTick(flushSchedulerQueue)，
-      // 在下一个tick执行flushSchedulerQueue方法
+      // 在下一个tick执行flushSchedulerQueue方法。
       waiting = true
 
+      // 如果在开发环境下，且全局配置config.async为false，则同步执行异步更新队列，并直接返回。
       if (process.env.NODE_ENV !== 'production' && !config.async) {
         flushSchedulerQueue()
         return
       }
 
+      // 否则，调用nextTick方法来异步执行异步更新队列
       nextTick(flushSchedulerQueue)
     }
   }

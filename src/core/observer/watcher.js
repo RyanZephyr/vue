@@ -41,9 +41,9 @@ export default class Watcher {
   deep: boolean; // in options，为true时可以发现对象内部值的变化
   user: boolean; // in options
   lazy: boolean; // in options
-  sync: boolean; // in options
-  dirty: boolean;
-  active: boolean;
+  sync: boolean; // in options，为true时该watcher的更新会同步执行（默认异步执行）
+  dirty: boolean; // 只有computed watcher会用，为true时表示依赖发生了改变，但computed属性尚未更新
+  active: boolean; // 为true时表示当前watcher处于激活状态
   deps: Array<Dep>; // Dep列表
   newDeps: Array<Dep>; // 新Dep列表，只用于更新deps
   depIds: SimpleSet; // Dep id集合
@@ -130,6 +130,7 @@ export default class Watcher {
   /**
    * Evaluate the getter, and re-collect dependencies.
    */
+  // 在该类的构造函数中会调用
   get () {
     // 调用pushTarget()，把当前Watcher实例入栈，设置当前Watcher实例为Dep.target
     pushTarget(this)
@@ -170,7 +171,8 @@ export default class Watcher {
   /**
    * Add a dependency to this directive.
    */
-  // 针对性地更新newDepIds newDeps和dep.subs数组
+  // 基于传入的dep，针对性地更新newDepIds newDeps和dep.subs数组。
+  // 只在Dep类的depend方法中被调用。
   addDep (dep: Dep) {
     const id = dep.id
 
@@ -222,13 +224,17 @@ export default class Watcher {
    * Subscriber interface.
    * Will be called when a dependency changes.
    */
+  // 在src/core/observer文件夹下，只在Dep类的notify方法中被调用。
   update () {
     if (this.lazy) { 
-      // this.lazy为true是computed watcher的标志
+      // 当前Watcher实例为computed watcher，将this.dirty设为true，
+      // 表示computed属性的依赖发生了变更（脏了），需要重新估值。
       this.dirty = true
     } else if (this.sync) {
+      // this.sync为true，表示同步更新，从而直接调用this.run()。
       this.run()
     } else {
+      // 将当前Watcher实例放入异步更新队列。
       queueWatcher(this)
     }
   }
@@ -237,9 +243,14 @@ export default class Watcher {
    * Scheduler job interface.
    * Will be called by the scheduler.
    */
+  // 只在flushSchedulerQueue方法和本类的update方法中被调用。
+  // 如果当前watcher处于激活状态，执行真正的更新变化操作（调用this.get()，更新this.value，调用this.cb）；否则不做任何操作。
   run () {
     if (this.active) {
+      // 调用this.get()方法获取新值。
       const value = this.get()
+
+      // 三种情况下执行更新变化操作：新值不等于旧值；新值是个对象；深度观测（this.deep为true）
       if (
         value !== this.value ||
         // Deep watchers and watchers on Object/Arrays should fire even
@@ -251,11 +262,14 @@ export default class Watcher {
         // set new value
         const oldValue = this.value
         this.value = value
+
+        // 执行this.cb
         if (this.user) {
-          // this.user为true表示当前watcher是user watcher
+          // 当前watcher是user watcher，通过调用invokeWithErrorHandling方法来执行this.cb
           const info = `callback for watcher "${this.expression}"`
           invokeWithErrorHandling(this.cb, this.vm, [value, oldValue], this.vm, info)
         } else {
+          // 当前watcher不是user watcher，直接使用call方法来执行this.sub
           this.cb.call(this.vm, value, oldValue)
         }
       }
@@ -266,6 +280,7 @@ export default class Watcher {
    * Evaluate the value of the watcher.
    * This only gets called for lazy watchers.
    */
+  // 只在createComputedGetter方法返回的计算属性getter中被调用。
   evaluate () {
     this.value = this.get()
     this.dirty = false
@@ -274,6 +289,8 @@ export default class Watcher {
   /**
    * Depend on all deps collected by this watcher.
    */
+  // 只在createComputedGetter返回的计算属性getter中被调用。
+  // 调用deps数组中所有dep的depend方法，收集该Watcher实例的所有依赖。
   depend () {
     let i = this.deps.length
     while (i--) {

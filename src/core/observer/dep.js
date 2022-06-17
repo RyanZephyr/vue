@@ -24,12 +24,12 @@ export default class Dep {
     this.subs = []
   }
 
-  // 只在Watcher类的addDep方法中被调用
+  // 只在Watcher类的addDep方法中被调用，向this.subs数组添加watcher
   addSub (sub: Watcher) {
     this.subs.push(sub)
   }
 
-  // 只在Watcher类的cleanupDeps和teardown方法中被调用
+  // 只在Watcher类的cleanupDeps和teardown方法中被调用，从this.subs数组移除watcher
   removeSub (sub: Watcher) {
     remove(this.subs, sub)
   }
@@ -42,8 +42,8 @@ export default class Dep {
     }
   }
 
-  // 派发更新：执行subs中所有watcher的update()方法
-  // 只有四个地方派发更新：Array异化方法；响应式setter；set方法；del方法
+  // 派发更新：执行subs中所有watcher的update()方法。
+  // 只有四个地方派发更新：Array异化方法；响应式数据项的setter；set方法；del方法。
   notify () {
     // stabilize the subscriber list first
     const subs = this.subs.slice()

@@ -8,9 +8,11 @@ import { isIE, isIOS, isNative } from './env'
 export let isUsingMicroTask = false
 
 const callbacks = []
-let pending = false
+let pending = false // 为true表示回调队列正在等待刷新，不为空。
 
-// 将pending状态还原为false，并遍历执行callbacks数组中的方法
+// 将pending状态还原为false，取callbacks数组的copy，清空callbacks数组，执行copy中的所有回调。
+// 借助copy，使得 回调中的nextTick调用 注册新的micro/macrotask来执行新的回调。
+// 只在timerFunc方法中被调用。
 function flushCallbacks () {
   pending = false
   const copies = callbacks.slice(0)
@@ -31,7 +33,7 @@ function flushCallbacks () {
 // where microtasks have too high a priority and fire in between supposedly
 // sequential events (e.g. #4521, #6690, which have workarounds)
 // or even between bubbling of the same event (#6566).
-let timerFunc
+let timerFunc // 只在nextTick方法中被调用，将flushCallbacks方法注册为microtask或macrotask
 
 // The nextTick behavior leverages the microtask queue, which can be accessed
 // via either native Promise.then or MutationObserver.
@@ -39,10 +41,9 @@ let timerFunc
 // UIWebView in iOS >= 9.3.3 when triggered in touch event handlers. It
 // completely stops working after triggering a few times... so, if native
 // Promise is available, we will use it:
-// 首选Promise，然后是MutationObserver、setImmediate、setTimeout，
-// 用来实现timerFunc
+// 首选Promise，然后是用MutationObserver、setImmediate、setTimeout，来实现timerFunc。
 // 使用Promise或MutationObserver时（均借助microtask队列），
-// 标记isUsingMicroTask为true
+// 标记isUsingMicroTask为true。
 if (typeof Promise !== 'undefined' && isNative(Promise)) {
   const p = Promise.resolve()
   timerFunc = () => {
@@ -93,28 +94,32 @@ if (typeof Promise !== 'undefined' && isNative(Promise)) {
 export function nextTick (cb?: Function, ctx?: Object) {
   let _resolve
 
-  // 包裹传入的cb并收集到callbacks数组中
+  // 包裹传入的cb并收集到callbacks数组中。
   callbacks.push(() => {
     if (cb) {
+      // 如果有传入cb，则在ctx作用域下执行cb
       try {
         cb.call(ctx)
       } catch (e) {
         handleError(e, ctx, 'nextTick')
       }
     } else if (_resolve) {
+      // 没有传入cb，直接调用_resolve函数（在下方被设为Promise实例对象的resolve函数）。
       _resolve(ctx)
     }
   })
 
-  // 如果未处于pending状态，则进入pending状态，
-  // 并调用timerFunc()方法
+  // 如果未处于pending状态，则进入pending状态，并调用timerFunc()方法等待刷新。
   if (!pending) {
     pending = true
     timerFunc()
   }
 
   // 如果没有传入cb并且当前环境支持Promise，
-  // 则返回一个Promise
+  // 则返回一个Promise，来支持下面这种用法：
+  // Vue.nextTick().then(function() {
+  //   // 此时DOM已更新，做一些事情
+  // })
   if (!cb && typeof Promise !== 'undefined') {
     return new Promise(resolve => {
       _resolve = resolve

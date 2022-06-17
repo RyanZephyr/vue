@@ -281,7 +281,7 @@ export function defineReactive (
         return
       }
 
-      // 开发环境下调用customSetter，发出相关警告
+      // 开发环境下调用customSetter来发出相关警告
       if (process.env.NODE_ENV !== 'production' && customSetter) {
         customSetter()
       }
@@ -320,26 +320,36 @@ export function set (target: Array<any> | Object, key: any, val: any): any {
     warn(`Cannot set reactive property on undefined, null, or primitive value: ${(target: any)}`)
   }
 
-  // target为数组，key是有效的数组索引，直接修改并返回（如果target是响应式的，则会调用数组异化方法）
+  // target为数组，key是有效的数组索引，使用数组方法修改并返回（如果target是响应式的，则会调用数组异化方法）
   if (Array.isArray(target) && isValidArrayIndex(key)) {
     target.length = Math.max(target.length, key)
     target.splice(key, 1, val) // remove target[key] and insert val there
     return val
   }
 
-  // 如果key已经在target上，并且不在Object.prototype上，
-  // 直接赋值并返回
+  // 上方的if语句未进入有两种情况：
+  // 1. target不是数组，则target是纯对象；
+  // 2. target是数组，则key不是有效的数组索引，我们认为是将target作为对象来添加属性。
+
+  // 如果key已经在target或target的原型链上，并且不在Object.prototype上（set方法不改动Object.prototype），
+  // 直接赋值并返回。
+  // Vue并不会对原型链上的数据进行响应式化。
+  // key in target的判断是为了尊重原型链上的属性（https://github.com/vuejs/vue/issues/6845）。
   if (key in target && !(key in Object.prototype)) {
     target[key] = val
     return val
   }
 
+  // 代码运行到这里，说明正在给对象添加一个全新的属性。
   const ob = (target: any).__ob__
 
   // 我们不应在运行时向 Vue实例或根data对象上 添加响应式属性。
   // 对于上述行为不予添加，直接返回，在开发环境下发出警告。
   // _isVue为true表示target为Vue实例；
   // ob && ob.vmCount为true表示target为根data对象。
+  // 不允许向Vue实例添加响应式属性是为了防止属性覆盖；
+  // 不允许向根data对象添加响应式属性的原因是，根data对象没有对应的闭包中的Dep实例，
+  // 如果根data对象被依赖，根data对象通过Vue.set新增的属性无法触发更新。
   if (target._isVue || (ob && ob.vmCount)) {
     process.env.NODE_ENV !== 'production' && warn(
       'Avoid adding reactive properties to a Vue instance or its root $data ' +
@@ -389,6 +399,8 @@ export function del (target: Array<any> | Object, key: any) {
   // 对于上述行为不予删除，直接返回，在开发环境下发出警告。
   // _isVue为true表示target为Vue实例；
   // ob && ob.vmCount为true表示target为根data对象。
+  // 不允许删除Vue实例上的属性是出于安全考虑；
+  // 不允许删除根data对象上的属性是因为触发不了根data对象的依赖的更新（根data对象没有闭包Dep实例）
   if (target._isVue || (ob && ob.vmCount)) {
     process.env.NODE_ENV !== 'production' && warn(
       'Avoid deleting properties on a Vue instance or its root $data ' +
