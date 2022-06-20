@@ -14,11 +14,12 @@ function Vue(options) {
   this._init(options);
 }
 
-// 向Vue.prototype添加属性方法（挂载实例方法）
-initMixin(Vue); // 添加_init(options)方法
-stateMixin(Vue); // 添加$data $props属性，$set $delete $watch方法
-eventsMixin(Vue); // 添加$on $once $off $emit方法
-lifecycleMixin(Vue); // 添加_update $forceUpdate $destroy方法
-renderMixin(Vue); // 添加helper方法（_s _c等），$nextTick _render方法
+// 向Vue.prototype添加（挂载）属性方法。
+// 这些属性/方法为Vue构造函数的实例属性/方法（Vue本身无法直接调用，Vue实例才能直接调用）。
+initMixin(Vue); // 添加_init方法
+stateMixin(Vue); // 添加$data、$props只读属性，$set、$delete、$watch方法
+eventsMixin(Vue); // 添加$on、$once、$off、$emit方法
+lifecycleMixin(Vue); // 添加_update、$forceUpdate、$destroy方法
+renderMixin(Vue); // 添加helper方法（_s、_c等），$nextTick、_render方法
 
 export default Vue;

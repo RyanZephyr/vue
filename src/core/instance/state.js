@@ -376,8 +376,7 @@ export function stateMixin (Vue: Class<Component>) {
   const propsDef = {}
   propsDef.get = function () { return this._props }
 
-  // 开发环境下劫持$data和$props的setter，
-  // 不允许修改，并给出警告
+  // 开发环境下劫持$data和$props的setter，发出不允许修改的警告。
   if (process.env.NODE_ENV !== 'production') {
     dataDef.set = function () {
       warn(

@@ -1,4 +1,9 @@
 /* @flow */
+// 对Vue进行web平台化的包装：
+// 设置平台化的config；
+// 在Vue.options上混合进两个指令，model和show；
+// 在Vue.options上混合进两个组件，Transition和TransitionGroup；
+// 在Vue.prototype上添加两个方法，__patch__和$mount。
 
 import Vue from 'core/index'
 import config from 'core/config'
@@ -29,6 +34,20 @@ Vue.config.isUnknownElement = isUnknownElement
 // install platform runtime directives & components
 extend(Vue.options.directives, platformDirectives)
 extend(Vue.options.components, platformComponents)
+// Vue.options变成：
+// {
+// 	components: {
+// 		KeepAlive,
+// 		Transition,
+// 		TransitionGroup
+// 	},
+// 	directives: {
+// 		model,
+// 		show
+// 	},
+// 	filters: Object.create(null),
+// 	_base: Vue
+// }
 
 // install platform patch function
 Vue.prototype.__patch__ = inBrowser ? patch : noop
@@ -43,7 +62,6 @@ Vue.prototype.$mount = function (
 }
 
 // devtools global hook
-/* istanbul ignore next */
 if (inBrowser) {
   setTimeout(() => {
     if (config.devtools) {
@@ -73,4 +91,5 @@ if (inBrowser) {
   }, 0)
 }
 
+// 导出完全成型的运行时版本Vue构造函数
 export default Vue

@@ -18,12 +18,11 @@ import {
   defineReactive
 } from '../util/index'
 
-// 向Vue对象添加util set delete nextTick
-// observable options use mixin extend
-// filter() component() directive()
-// 属性、方法（挂载全局方法）
+// 向Vue函数对象添加静态（Vue本身可以直接调用，Vue实例无法调用）
+// 属性：config、options、cid
+// 方法：set、delete、nextTick、observable、use、extend、component、directive、filter
 export function initGlobalAPI (Vue: GlobalAPI) {
-  // config
+  // 向Vue函数对象添加config只读属性，代理/src/core/config.js文件导出的对象。
   const configDef = {}
   configDef.get = () => config
   if (process.env.NODE_ENV !== 'production') {
@@ -55,6 +54,8 @@ export function initGlobalAPI (Vue: GlobalAPI) {
     return obj
   }
 
+  // </T>
+  // 向Vue函数对象添加options属性
   Vue.options = Object.create(null)
   ASSET_TYPES.forEach(type => {
     Vue.options[type + 's'] = Object.create(null)
@@ -65,9 +66,19 @@ export function initGlobalAPI (Vue: GlobalAPI) {
   Vue.options._base = Vue
 
   extend(Vue.options.components, builtInComponents)
+  // Vue.options最终如下：
+  // {
+  //   components: {
+  //     KeepAlive
+  //   },
+  //   directives: Object.create(null),
+  //   filters: Object.create(null),
+  //   _base: Vue
+  // }
 
-  initUse(Vue)
-  initMixin(Vue)
-  initExtend(Vue)
-  initAssetRegisters(Vue)
+  // 四个方法分别对应同目录下的另外四个文件。
+  initUse(Vue) // 向Vue函数对象添加use方法
+  initMixin(Vue) // 向Vue函数对象添加mixin方法
+  initExtend(Vue) // 向Vue函数对象添加cid静态属性和extend方法
+  initAssetRegisters(Vue) // 向Vue函数对象添加component、directive、filter方法
 }
