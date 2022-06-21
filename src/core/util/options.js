@@ -295,6 +295,7 @@ export function validateComponentName (name: string) {
  * Ensure all props option syntax are normalized into the
  * Object-based format.
  */
+// 只在mergeOptions中被调用，将props规范化成对象语法格式
 function normalizeProps (options: Object, vm: ?Component) {
   const props = options.props
   if (!props) return
@@ -332,6 +333,7 @@ function normalizeProps (options: Object, vm: ?Component) {
 /**
  * Normalize all injections into Object-based format
  */
+// 只在mergeOptions中被调用
 function normalizeInject (options: Object, vm: ?Component) {
   const inject = options.inject
   if (!inject) return
@@ -359,6 +361,7 @@ function normalizeInject (options: Object, vm: ?Component) {
 /**
  * Normalize raw function directives into object format.
  */
+// 只在mergeOptions中被调用
 function normalizeDirectives (options: Object) {
   const dirs = options.directives
   if (dirs) {
@@ -385,20 +388,24 @@ function assertObjectType (name: string, value: any, vm: ?Component) {
  * Merge two option objects into a new one.
  * Core utility used in both instantiation and inheritance.
  */
+// 该函数在实例化时（_init方法中）用到，在继承中（Vue.extend中）用到。
 export function mergeOptions (
   parent: Object,
   child: Object,
   vm?: Component
 ): Object {
+  // 开发环境下验证child.components中所有key的命名是否合法
   if (process.env.NODE_ENV !== 'production') {
     checkComponents(child)
   }
 
+  // 如果child为function（child为组件），取child.options为child
   if (typeof child === 'function') {
     child = child.options
   }
 
-  normalizeProps(child, vm)
+  // 规范化child中的props/inject/directives至同一种语法格式
+  normalizeProps(child, vm) // 规范化至对象语法格式
   normalizeInject(child, vm)
   normalizeDirectives(child)
 

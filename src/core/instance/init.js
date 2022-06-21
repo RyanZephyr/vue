@@ -14,19 +14,21 @@ let uid = 0
 
 export function initMixin (Vue: Class<Component>) {
   // _init方法做的事情：
-  // 1. 给vm定义_uid
-  // 2. 给vm定义_isVue标记属性（取值为true），避免vm被观察
-  // 3. 合并相关options，给vm定义$options属性
-  // 4. 设置render的代理（开发环境为new Proxy()实例，生产环境为自身）
-  // 5. 初始化生命周期、事件、render，调用beforeCreate生命周期钩子
-  // 6. 初始化injection、state、provide，调用created生命周期钩子
-  // 7. 如果提供了el配置项，则将实例挂载到真实DOM
+  // 1. 给实例添加唯一表示_uid属性；
+  // 2. 给实例添加_isVue属性（取值为true），标记实例对象为Vue实例，避免实例被观测；
+  // 3. 合并相关options，给实例添加$options属性；
+  // 4. 设置render的代理（开发环境为new Proxy()实例，生产环境为自身）；
+  // 5. 初始化生命周期、事件、render，调用beforeCreate生命周期钩子；
+  // 6. 初始化injection、state、provide，调用created生命周期钩子；
+  // 7. 如果提供了el配置项，则将实例挂载到真实DOM。
   Vue.prototype._init = function (options?: Object) {
     const vm: Component = this
     // a uid
     vm._uid = uid++
 
-    // 性能监控相关代码
+    // 在DevTools-Performance-Timings中对组件初始化进行性能追踪：
+    // 分别在组件初始化开始前和完成时调用mark方法打上两个标记startTag和endTag，
+    // 然后调用measure方法基于这两个标记点进行性能计算。
     let startTag, endTag
     if (process.env.NODE_ENV !== 'production' && config.performance && mark) {
       startTag = `vue-perf-start:${vm._uid}`
@@ -68,7 +70,7 @@ export function initMixin (Vue: Class<Component>) {
     initProvide(vm) // resolve provide after data/props
     callHook(vm, 'created')
 
-    // 性能监控相关代码
+    // 在DevTools-Performance-Timings中对组件初始化进行性能追踪
     if (process.env.NODE_ENV !== 'production' && config.performance && mark) {
       vm._name = formatComponentName(vm, false)
       mark(endTag)
@@ -82,6 +84,7 @@ export function initMixin (Vue: Class<Component>) {
   }
 }
 
+// 只在_init方法中被调用。
 export function initInternalComponent (vm: Component, options: InternalComponentOptions) {
   const opts = vm.$options = Object.create(vm.constructor.options)
   // doing this because it's faster than dynamic enumeration.
@@ -101,8 +104,10 @@ export function initInternalComponent (vm: Component, options: InternalComponent
   }
 }
 
+// 从实例的构造函数获取options
 export function resolveConstructorOptions (Ctor: Class<Component>) {
-  let options = Ctor.options
+  let options = Ctor.options // 获取传入的构造函数对象的options属性
+
   if (Ctor.super) {
     const superOptions = resolveConstructorOptions(Ctor.super)
     const cachedSuperOptions = Ctor.superOptions
@@ -122,9 +127,11 @@ export function resolveConstructorOptions (Ctor: Class<Component>) {
       }
     }
   }
+
   return options
 }
 
+// 只在resolveConstructorOptions方法中被调用。
 function resolveModifiedOptions (Ctor: Class<Component>): ?Object {
   let modified
   const latest = Ctor.options
