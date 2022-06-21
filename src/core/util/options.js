@@ -333,7 +333,7 @@ function normalizeProps (options: Object, vm: ?Component) {
 /**
  * Normalize all injections into Object-based format
  */
-// 只在mergeOptions中被调用
+// 只在mergeOptions中被调用，将inject规范化成对象语法格式
 function normalizeInject (options: Object, vm: ?Component) {
   const inject = options.inject
   if (!inject) return
@@ -361,7 +361,7 @@ function normalizeInject (options: Object, vm: ?Component) {
 /**
  * Normalize raw function directives into object format.
  */
-// 只在mergeOptions中被调用
+// 只在mergeOptions中被调用，将directives规范化为对象语法格式
 function normalizeDirectives (options: Object) {
   const dirs = options.directives
   if (dirs) {
@@ -404,8 +404,8 @@ export function mergeOptions (
     child = child.options
   }
 
-  // 规范化child中的props/inject/directives至同一种语法格式
-  normalizeProps(child, vm) // 规范化至对象语法格式
+  // 规范化child中的props/inject/directives至对象语法格式
+  normalizeProps(child, vm)
   normalizeInject(child, vm)
   normalizeDirectives(child)
 
@@ -423,6 +423,9 @@ export function mergeOptions (
       }
     }
   }
+
+  // 到这里为止，mergeOptions都在对parent和child进行预处理；
+  // 接下来，进行选项合并。
 
   const options = {}
   let key
