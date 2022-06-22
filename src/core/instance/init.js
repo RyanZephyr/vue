@@ -54,8 +54,10 @@ export function initMixin (Vue: Class<Component>) {
     }
 
     if (process.env.NODE_ENV !== 'production') {
+      // 开发环境下调用initProxy函数设置vm._renderProxy。
       initProxy(vm)
     } else {
+      // 生产环境下直接设置vm._renderProxy。
       vm._renderProxy = vm
     }
 

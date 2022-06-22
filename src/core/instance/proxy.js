@@ -3,12 +3,13 @@
 import config from 'core/config'
 import { warn, makeMap, isNative } from '../util/index'
 
+// 声明initProxy变量，并在最后导出
 let initProxy
 
 // 只在开发环境执行代码
 if (process.env.NODE_ENV !== 'production') {
-  // makeMap根据传入参数创建一个map，
-  // 并返回一个函数用于判断传入参数是否在map中
+  // makeMap根据传入参数创建一个map，并返回一个函数用于判断传入参数是否在map中。
+  // 只在hasHandler.has方法中被调用。
   const allowedGlobals = makeMap(
     'Infinity,undefined,NaN,isFinite,isNaN,' +
     'parseFloat,parseInt,decodeURI,decodeURIComponent,encodeURI,encodeURIComponent,' +
@@ -16,6 +17,7 @@ if (process.env.NODE_ENV !== 'production') {
     'require' // for Webpack/Browserify
   )
 
+  // 两个警告函数，在hasHandler和getHandler中被调用。
   const warnNonPresent = (target, key) => {
     warn(
       `Property or method "${key}" is not defined on the instance but ` +
@@ -37,7 +39,7 @@ if (process.env.NODE_ENV !== 'production') {
     )
   }
 
-  // 判断当前JavaScript环境是否原生支持Proxy
+  // 标志变量，标志当前JS环境是否原生支持Proxy。
   const hasProxy =
     typeof Proxy !== 'undefined' && isNative(Proxy)
 
@@ -79,16 +81,22 @@ if (process.env.NODE_ENV !== 'production') {
     }
   }
 
+  // initProxy函数给传入的vm对象添加_renderProxy属性。
   initProxy = function initProxy (vm) {
     if (hasProxy) {
+      // 当前JS环境原生支持Proxy
+
       // determine which proxy handler to use
       const options = vm.$options
+
       // 使用vue-loader解析.vue文件时，options.render._withStripped为真值
       const handlers = options.render && options.render._withStripped
         ? getHandler
         : hasHandler
+
       vm._renderProxy = new Proxy(vm, handlers)
     } else {
+      // 当前JS环境不原生支持Proxy，直接设置vm._renderProxy。
       vm._renderProxy = vm
     }
   }
