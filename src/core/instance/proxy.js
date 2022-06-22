@@ -84,12 +84,11 @@ if (process.env.NODE_ENV !== 'production') {
   // initProxy函数给传入的vm对象添加_renderProxy属性。
   initProxy = function initProxy (vm) {
     if (hasProxy) {
-      // 当前JS环境原生支持Proxy
+      // 当前JS环境原生支持Proxy，使用Proxy对vm做一层代理并赋给vm._renderProxy。
 
       // determine which proxy handler to use
       const options = vm.$options
-
-      // 使用vue-loader解析.vue文件时，options.render._withStripped为真值
+      // options.render._withStripped只在测试代码中出现，所以一般使用hasHandler作为代理配置。
       const handlers = options.render && options.render._withStripped
         ? getHandler
         : hasHandler
