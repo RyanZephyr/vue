@@ -517,8 +517,8 @@ export function mergeOptions (
   // but only if it is a raw options object that isn't
   // the result of another mergeOptions call.
   // Only merged options has the _base property.
-  // 一开始时，只有Vue.options._base为true。
-  // 因此，如果child._base为true，说明child是某次mergeOptions调用的结果，
+  // 一开始时，只有Vue.options._base被设为Vue。
+  // 因此，如果child._base不为空，说明child是某次mergeOptions调用的结果，
   // 那么child.extends和child.mixins已经被合并进了child，不需要再次合并。
   if (!child._base) {
     if (child.extends) {
