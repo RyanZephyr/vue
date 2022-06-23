@@ -53,7 +53,8 @@ export function initMixin (Vue: Class<Component>) {
       )
     }
 
-    // 设置vm._renderProxy。
+    // 设置vm._renderProxy，作为render function的作用域代理。
+    // 目的：在开发环境下给出更多有用的提示信息。
     if (process.env.NODE_ENV !== 'production') {
       // 开发环境下调用initProxy函数设置vm._renderProxy。
       initProxy(vm)
