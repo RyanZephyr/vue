@@ -47,9 +47,10 @@ export function proxy (target: Object, sourceKey: string, key: string) {
   Object.defineProperty(target, key, sharedPropertyDefinition)
 }
 
-// 初始化$options中的props methods data computed watch
+// 初始化$options中的props、methods、data、computed、watch
 export function initState (vm: Component) {
-  vm._watchers = []
+  vm._watchers = [] // 向实例添加_watchers属性，一个用于存放实例所有watcher对象的数组。
+
   const opts = vm.$options
   if (opts.props) initProps(vm, opts.props)
   if (opts.methods) initMethods(vm, opts.methods)

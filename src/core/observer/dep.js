@@ -66,6 +66,7 @@ Dep.target = null
 const targetStack = []
 
 // 在Watcher类的get方法中用到
+// pushTarget()传入空target，用来暂时禁用依赖收集。
 export function pushTarget (target: ?Watcher) {
   targetStack.push(target)
   Dep.target = target

@@ -12,6 +12,7 @@ export function handleError (err: Error, vm: any, info: string) {
   pushTarget()
   try {
     if (vm) {
+      // 如果传入了所在实例，调用当前实例及其所有父实例的errorCaptured生命周期钩子函数，直到error被捕获。
       let cur = vm
       while ((cur = cur.$parent)) {
         const hooks = cur.$options.errorCaptured
@@ -27,6 +28,7 @@ export function handleError (err: Error, vm: any, info: string) {
         }
       }
     }
+    // 未在errorCaptured生命周期钩子函数中被处理，调用globalHandleError处理error。
     globalHandleError(err, vm, info)
   } finally {
     popTarget()
@@ -55,6 +57,7 @@ export function invokeWithErrorHandling (
   return res
 }
 
+// 只在handleError函数中被调用，调用config.errorHandler处理error。
 function globalHandleError (err, vm, info) {
   if (config.errorHandler) {
     try {
@@ -70,11 +73,14 @@ function globalHandleError (err, vm, info) {
   logError(err, vm, info)
 }
 
+// 只在globalHandleError函数中被调用。
 function logError (err, vm, info) {
+  // 开发环境下发出警告。
   if (process.env.NODE_ENV !== 'production') {
     warn(`Error in ${info}: "${err.toString()}"`, vm)
   }
-  /* istanbul ignore else */
+
+  // 在控制台输出错误。
   if ((inBrowser || inWeex) && typeof console !== 'undefined') {
     console.error(err)
   } else {

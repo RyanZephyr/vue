@@ -19,11 +19,17 @@ import { isUpdatingChildComponent } from './lifecycle'
 export function initRender (vm: Component) {
   vm._vnode = null // the root of the child tree
   vm._staticTrees = null // v-once cached trees
+
+  // 在vm上添加$vnode、$slots、$scopedSlots三个属性
   const options = vm.$options
   const parentVnode = vm.$vnode = options._parentVnode // the placeholder node in parent tree
   const renderContext = parentVnode && parentVnode.context
   vm.$slots = resolveSlots(options._renderChildren, renderContext)
   vm.$scopedSlots = emptyObject
+
+  // 在vm上添加_c、$createElement两个方法，均为对内部函数createElement的包装。
+  // 两个包装唯一不同的地方是第六个参数alwaysNormalize，一个为false一个为true。
+
   // bind the createElement fn to this instance
   // so that we get proper render context inside it.
   // args order: tag, data, children, normalizationType, alwaysNormalize
@@ -37,7 +43,8 @@ export function initRender (vm: Component) {
   // they need to be reactive so that HOCs using them are always updated
   const parentData = parentVnode && parentVnode.data
 
-  /* istanbul ignore else */
+  // 在vm上定义$attrs、$listeners两个属性。
+  // 开发环境与生产环境的定义不同在于开发环境提供了自定义setter，用来发出禁止手动修改的警告。
   if (process.env.NODE_ENV !== 'production') {
     defineReactive(vm, '$attrs', parentData && parentData.attrs || emptyObject, () => {
       !isUpdatingChildComponent && warn(`$attrs is readonly.`, vm)

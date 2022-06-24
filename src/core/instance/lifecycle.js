@@ -33,14 +33,20 @@ export function initLifecycle (vm: Component) {
   const options = vm.$options
 
   // locate first non-abstract parent
+  // 获取当前实例的父组件
   let parent = options.parent
+
+  // 当前实例有父组件，且当前实例不是抽象组件实例（抽象组件实例不出现在父子关系中，不渲染真实DOM）
   if (parent && !options.abstract) {
+    // while循环查找当前实例的第一个非抽象组件父辈实例，并赋给parent
     while (parent.$options.abstract && parent.$parent) {
       parent = parent.$parent
     }
+    // parent是父实例链上第一个非抽象组件实例，将它作为当前实例的父级，将当前实例添加到它的$children数组中
     parent.$children.push(vm)
   }
-
+  
+  // 如果当前实例是抽象组件实例，就会跳过上方if代码块，即跳过将当前实例加入到parent.$children的代码
   vm.$parent = parent
   vm.$root = parent ? parent.$root : vm
 
@@ -340,13 +346,19 @@ export function callHook (vm: Component, hook: string) {
   pushTarget()
   const handlers = vm.$options[hook]
   const info = `${hook} hook`
+
+  // 实例有相关的生命周期钩子选项时，执行其中的所有生命周期钩子函数。
   if (handlers) {
+    // 生命周期钩子选项在合并选项时被处理成数组，因此遍历数组逐个执行生命周期钩子函数。
     for (let i = 0, j = handlers.length; i < j; i++) {
       invokeWithErrorHandling(handlers[i], vm, null, vm, info)
     }
   }
+
+  // 为生命周期钩子的事件侦听器（lifecycle-hook event listener）提供支持：@hook:created="handleCreated"
   if (vm._hasHookEvent) {
     vm.$emit('hook:' + hook)
   }
+
   popTarget()
 }
