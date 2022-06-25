@@ -36,7 +36,7 @@ const sharedPropertyDefinition = {
   set: noop
 }
 
-// proxy代理：劫持getter和setter，允许通过obj.key(obj.name)来访问obj.sourceKey.key(obj._data.name)
+// proxy代理：劫持getter和setter，允许通过obj.key(例如obj.name)来访问obj.sourceKey.key(例如obj._data.name)
 export function proxy (target: Object, sourceKey: string, key: string) {
   sharedPropertyDefinition.get = function proxyGetter () {
     return this[sourceKey][key]
@@ -128,12 +128,15 @@ function initProps (vm: Component, propsOptions: Object) {
 
 function initData (vm: Component) {
   let data = vm.$options.data
-  // 判断data是否为函数并取值，并赋给vm._data属性
+
+  // 判断data是否为函数并取值，将获得的数据对象赋给vm._data属性和data变量。
+  // 虽然在合并选项时会将$options.data处理成函数，但在beforeCreated钩子中可能修改$options.data，
+  // 所以仍需判断$options.data的类型。
   data = vm._data = typeof data === 'function'
     ? getData(data, vm)
     : data || {}
   
-  // 如果data不是纯对象，将data设为空对象{}，在开发模式下发出警告
+  // 如果data不是纯对象，将data设为空对象{}，在开发模式下发出警告。
   if (!isPlainObject(data)) {
     data = {}
     process.env.NODE_ENV !== 'production' && warn(
@@ -147,10 +150,16 @@ function initData (vm: Component) {
   const keys = Object.keys(data)
   const props = vm.$options.props
   const methods = vm.$options.methods
+
+  // 遍历数据对象的key，做三件事：
+  // 1. 在开发环境下发现有方法和key重名时（实例上的代理会被覆盖为数据项），发出警告信息。
+  // 2. 在开发环境下发现有props和key重名时（实例上的代理会被覆盖为数据项），发出警告信息。
+  // 3. key不与props重名，且不以_或$开头（避免和Vue实例已有的属性冲突），则在实例上设置vm.key accessor代理vm._data.key。
   let i = keys.length
   while (i--) {
     const key = keys[i]
-    // 在开发环境下与方法重名时发出警告
+
+    // 在开发环境下，有方法和key重名时发出警告。
     if (process.env.NODE_ENV !== 'production') {
       if (methods && hasOwn(methods, key)) {
         warn(
@@ -159,7 +168,8 @@ function initData (vm: Component) {
         )
       }
     }
-    // 与props重名时不设置代理，在开发环境下发出警告
+
+    // 与props重名时不设置代理，在开发环境下发出警告。
     if (props && hasOwn(props, key)) {
       process.env.NODE_ENV !== 'production' && warn(
         `The data property "${key}" is already declared as a prop. ` +
@@ -167,16 +177,16 @@ function initData (vm: Component) {
         vm
       )
     } else if (!isReserved(key)) {
-      // 不与props重名，且名称不以_或$开头，则设置代理
+      // key不与props重名，且不以_或$开头，则在实例上设置同名代理accessor。
       proxy(vm, `_data`, key)
     }
   }
 
-  // observe data
-  // 对根data调用observe方法，并设置asRootData参数为true
+  // observe data（响应式化数据对象）：对数据对象data调用observe方法，并设置asRootData参数为true
   observe(data, true /* asRootData */)
 }
 
+// 调用data函数获取数据对象。
 export function getData (data: Function, vm: Component): any {
   // #7573 disable dep collection when invoking data getters
   pushTarget()
@@ -184,7 +194,7 @@ export function getData (data: Function, vm: Component): any {
     return data.call(vm, vm)
   } catch (e) {
     handleError(e, vm, `data()`)
-    return {}
+    return {} // data函数执行出错，则返回一个空对象作为实例的数据对象。
   } finally {
     popTarget()
   }
