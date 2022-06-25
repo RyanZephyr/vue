@@ -182,7 +182,7 @@ function initData (vm: Component) {
     }
   }
 
-  // observe data（响应式化数据对象）：对数据对象data调用observe方法，并设置asRootData参数为true
+  // observe data（观察数据对象）：对数据对象data调用observe方法，并设置asRootData参数为true
   observe(data, true /* asRootData */)
 }
 

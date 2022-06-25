@@ -103,7 +103,7 @@ export default class Watcher {
     } else {
       // expOrFn为表达式，
       // 但是表达式可能是'a'，也可能是'a.x'这种形式，
-      // 通过调用parsePath方法，统一解析并返回一个需要传入vm的getter
+      // 通过调用parsePath方法，统一解析并返回一个需要传入vm的getter函数
       this.getter = parsePath(expOrFn)
 
       // expOrFn表达式中存在非法字符，无法解析，则this.getter为undefined
