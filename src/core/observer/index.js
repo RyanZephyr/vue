@@ -45,25 +45,24 @@ export function toggleObserving (value: boolean) {
  * object's property keys into getter/setters that
  * collect dependencies and dispatch updates.
  */
-// 只负责响应式化相应数据对象的所有属性
+// 只负责响应式化相应数据对象的所有属性。
 export class Observer {
   value: any;
-  dep: Dep;
+  dep: Dep; // 属于相应数据对象/数组的Dep实例。
   vmCount: number; // number of vms that have this object as root $data
 
-  // 构造函数做两件事：
-  // 设置value相应的Observer实例的相关属性
-  // 对传入的value的所有属性进行响应式化
+  // 构造函数做两件事：设置value相应的Observer实例的相关属性；对传入的value的所有属性进行响应式化。
   constructor (value: any) {
     this.value = value
     this.dep = new Dep()
     this.vmCount = 0
-    // 在数据对象上定义不可枚举的__ob__属性，指向其对应的Observer（即this）
+    
+    // 在数据对象上定义不可枚举的__ob__属性，指向其对应的Observer（即this）。
     def(value, '__ob__', this)
 
     // 对value的元素/属性进行响应式化：
-    // value为数组时，调用observeArray()方法响应式化数组元素
-    // value为纯对象时，调用walk()方法响应式化对象属性
+    // value为数组时，调用observeArray()方法响应式化数组元素；
+    // value为纯对象时，调用walk()方法响应式化对象属性。
     if (Array.isArray(value)) {
       // hasProto判断当前JavaScript环境是否支持__proto__属性
       // 根据具体情况使用不同方法，对数组7种可以改变自身的方法提供响应式支持
@@ -142,11 +141,11 @@ function copyAugment (target: Object, src: Object, keys: Array<string>) {
  * returns the new observer if successfully observed,
  * or the existing observer if the value already has one.
  */
-// 尝试为value创建一个observer实例：new Observer(value)。
-// 创建observer实例的过程中会对value的每项属性进行响应式化。
-// 最后返回value对应的Observer实例。
+// 尝试为value创建一个observer实例（观测value）：new Observer(value)，并在最后返回。
+// 创建observer实例会对value的每项属性进行响应式化。
+// asRootData为true时，表示观测的数据为根数据对象data。
 export function observe (value: any, asRootData: ?boolean): Observer | void {
-  // value 不为对象 或 是VNode实例 时，不进行任何操作，直接return
+  // value 不为对象 或 是VNode实例 时，不进行任何操作，直接return。
   if (!isObject(value) || value instanceof VNode) {
     return
   }
@@ -154,7 +153,8 @@ export function observe (value: any, asRootData: ?boolean): Observer | void {
   let ob: Observer | void
 
   if (hasOwn(value, '__ob__') && value.__ob__ instanceof Observer) {
-    // 如果value已经有__ob__属性且__ob__为Observer实例，则说明value已被观察
+    // 如果value已经有__ob__属性且__ob__为Observer实例，则说明value已被观测。
+    // 将value.__ob__赋给ob，避免重复观测。
     ob = value.__ob__
   } else if (
     shouldObserve &&
@@ -163,14 +163,19 @@ export function observe (value: any, asRootData: ?boolean): Observer | void {
     Object.isExtensible(value) &&
     !value._isVue
   ) {
-    // 否则，满足上述条件时新建Observer实例，观察value
+    // 五个条件：观测未被临时关闭；不是服务端渲染；value是数组或纯对象；
+    // value是可扩展的对象（未被Object.preventExtensions/freeze/seal(value)）；
+    // value不为Vue实例对象。
+
+    // value未被观测过，则在满足上述条件时新建Observer实例，观测value。
     ob = new Observer(value)
   }
   
-  // 如果value对象为根$data对象，则ob.cmCount++
+  // 如果value对象为根数据对象data，则ob.vmCount++
   if (asRootData && ob) {
     ob.vmCount++
   }
+
   return ob
 }
 
@@ -186,7 +191,7 @@ export function defineReactive (
   customSetter?: ?Function,
   shallow?: boolean
 ) {
-  const dep = new Dep()
+  const dep = new Dep() // 属于相应数据字段（对象属性）的Dep实例。
 
   // 获取obj[key]的descriptor
   const property = Object.getOwnPropertyDescriptor(obj, key)
