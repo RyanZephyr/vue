@@ -57,23 +57,21 @@ export class Observer {
     this.dep = new Dep()
     this.vmCount = 0
     
-    // 在数据对象上定义不可枚举的__ob__属性，指向其对应的Observer（即this）。
+    // 在数据对象上定义不可枚举的__ob__属性，指向其对应的Observer实例（即this），
+    // 主要用于对数据对象增删属性时通过__ob__.dep派发更新。
     def(value, '__ob__', this)
 
     // 对value的元素/属性进行响应式化：
-    // value为数组时，调用observeArray()方法响应式化数组元素；
+    // value为数组时，为value提供变异方法，并调用observeArray()方法观测数组元素；
     // value为纯对象时，调用walk()方法响应式化对象属性。
     if (Array.isArray(value)) {
-      // hasProto判断当前JavaScript环境是否支持__proto__属性
-      // 根据具体情况使用不同方法，对数组7种可以改变自身的方法提供响应式支持
+      // hasProto判断当前JavaScript环境是否支持__proto__属性。
+      // 根据具体情况使用不同方法，对数组7种可以改变自身的方法提供响应式支持。
       if (hasProto) {
-        // JS环境支持__proto__属性时，
-        // value.__proto__ = arrayMethods
+        // JS环境支持__proto__属性时，value.__proto__ = arrayMethods
         protoAugment(value, arrayMethods)
       } else {
-        // JS环境不支持__proto__属性时，
-        // 直接将arrayMethods的所有属性赋给数组对象，
-        // 其中包括数组修改拦截方法
+        // JS环境不支持__proto__属性时，直接将arrayMethods的所有属性赋给数组对象，其中包括数组修改拦截方法。
         copyAugment(value, arrayMethods, arrayKeys)
       }
       this.observeArray(value)
@@ -87,9 +85,7 @@ export class Observer {
    * getter/setters. This method should only be called when
    * value type is Object.
    */
-  // 只在Observer类的构造函数中被调用
-  // 遍历对象属性，调用defineReactive()方法
-  // 递归借助observe()方法实现
+  // 只在Observer类的构造函数中被调用：遍历对象可枚举属性，调用defineReactive()方法。
   walk (obj: Object) {
     const keys = Object.keys(obj)
     for (let i = 0; i < keys.length; i++) {
@@ -182,8 +178,9 @@ export function observe (value: any, asRootData: ?boolean): Observer | void {
 /**
  * Define a reactive property on an Object.
  */
-// 相当于对Object.defineProperty()的一层包裹
-// 主要处理getter/setter相关的逻辑，最后调用Object.defineProperty()设置getter/setter
+// 用于将数据对象的数据属性转换为访问器属性。
+// 相当于对Object.defineProperty()的一层包裹，主要处理getter/setter相关的逻辑，
+// 最后调用Object.defineProperty()设置getter/setter。
 export function defineReactive (
   obj: Object,
   key: string,
@@ -191,84 +188,53 @@ export function defineReactive (
   customSetter?: ?Function,
   shallow?: boolean
 ) {
-  const dep = new Dep() // 属于相应数据字段（对象属性）的Dep实例。
+  const dep = new Dep() // 属于相应数据属性的Dep实例，用于收集该数据属性的依赖和派发该数据属性的更新。
 
   // 获取obj[key]的descriptor
   const property = Object.getOwnPropertyDescriptor(obj, key)
 
-  // 如果有configurable: false，则obj[key]无法响应式化，直接return
-  // configurable: false无法被撤销
+  // 如果有configurable: false，则obj[key]无法响应式化，直接return（configurable: false无法被撤销）。
   if (property && property.configurable === false) {
     return
   }
 
-  // cater for pre-defined getter/setters
-  // 尝试从obj[key]的descriptor中获得getter和setter
+  // cater for pre-defined getter/setters：尝试从obj[key]的descriptor中获得getter和setter。
   const getter = property && property.get
   const setter = property && property.set
 
-  /** 
-   * 问题一
-   * 下方这个if判断一开始是没有的，这就使得调用defineReactive必须提供val。
-   * 但是提供val的话可能会触发getter，如果val本身是一个accessor。
-   * 这种情况的触发getter可能会造成一些需求上的偏差（比如程序员决定在getter里发出一些请求，并自主决定什么时候触发getter从而发出这些请求）。
-   * 因此，我们希望调用defineReactive不必须提供val，从而避免多余的触发getter。
-   * 
-   * 为了解决上面的问题，通过增加if语句，区分不提供val的两种情况：
-   * 1. obj[key]没有getter，推断是普通类型属性，不会触发额外getter，进入if语句，将obj[key]赋给val，obj[key]初始值具有响应式，最终getter通过val获取值。
-   * 2. obj[key]有getter，要避免触发额外getter，跳过if语句，obj[key]初始值不具有响应式，最终getter通过调用原始getter获取值。
-   * 
-   * 基于上述情况，有了下方的代码：
-   * if (!getter && arguments.length === 2) {
-   *   val = obj[key]
-   * }
-   * 
-   * 问题二
-   * 基于上述改动，有了新的问题：
-   * 对于既有getter也有setter的obj[key]，如果不传入val，
-   * 则observe(val)时val为undefined，从而obj[key]的初始值不会被响应式化，childOb也会是undefined。
-   * 一直到修改obj[key]触发setter，setter中的observe(newVal)才会让obj[key]的新值响应式化。
-   * 
-   * 为了解决上面的问题，我们区分不提供val的两种用法：
-   * 1. 如果想要不触发额外getter，就提供只有getter，没有setter的obj[key]
-   * 2. 否则，对于既有getter，也有setter的obj[key]，我们触发getter设置val
-   * 用法1作为上方问题一的解决方案，不会有多余的触发getter，但初始值也不会被响应式化（不过好像也不需要响应式化，因为没有提供setter，就不会有修改）。
-   * 用法2保证既有getter也有setter的obj[key]和原来一样，初始值会被响应式化。
-   * 此外，我们认为没有 没有getter但是有setter 的情况。
-   * 
-   * 基于上述情况，有了下方的最终代码：
-   */
+  // 注释见文件末尾。
   if ((!getter || setter) && arguments.length === 2) {
     val = obj[key]
   }
 
-  // 如果shallow参数为true，则不进一步深度观测；否则，尝试观测val。
+  // 如果shallow参数为true，则不进一步深度观测；否则，尝试观测val并获得返回值（默认进行深度观测）。
   // 如果val不是对象（null和undefined都不是对象）或是VNode实例，childOb为undefined；
   // 否则，childOb为val对应的Observer实例。
-  // 通过observe(val)递归遍历地定义响应式。
+  // 通过observe(val)递归地定义响应式。
   let childOb = !shallow && observe(val)
   
   Object.defineProperty(obj, key, {
     enumerable: true,
     configurable: true,
     get: function reactiveGetter () {
-      // 有getter的话调用getter获得value，没有getter则取传入的val
+      // 1. 正确地返回属性值：有原有getter的话调用获得value，没有原有getter则取传入的val。
       const value = getter ? getter.call(obj) : val
 
-      // 依赖收集
-      // Dep.target在Watcher类的get方法中，通过调用pushTarget和popTarget方法来设置
+      // 2. 依赖收集
+      // Dep.target为当前处理的Watcher实例，在Watcher类的get方法中通过调用pushTarget和popTarget方法设置
       if (Dep.target) {
-        // 如果当前有正在进行依赖收集的Watcher，则进行当前数据项的依赖收集
-        // dep为当前数据项getter的闭包中的Dep类实例
+        // 如果当前有正在进行处理的Watcher实例，则进行当前数据项的依赖收集。
+        // dep为当前数据项getter的闭包中的Dep实例。
         dep.depend()
 
-        // 如果val有对应的Observer实例，则也进行相同的依赖收集
+        // 如果val有对应的Observer实例（obj[key].__ob__），则也进行相同的依赖收集。
         if (childOb) {
-          // 在childOb.dep上收集相同的依赖的目的是使得Vue.set和Vue.del能够通过__ob__.dep派发更新
+          // 在没有Proxy之前，Vue没有办法拦截到给对象增删属性的操作。
+          // 在childOb.dep上收集相同的依赖，使得调用Vue.set和Vue.del增删属性时能够通过__ob__.dep来派发更新。
           childOb.dep.depend()
 
           // 如果value是数组的话，在每项数组元素的__ob__.dep上进行依赖收集，
-          // 使得Vue.set和Vue.del对数组进行操作，也能够通过__ob__.dep派发更新
+          // 使得Vue.set和Vue.del对数组进行操作，也能够通过__ob__.dep派发更新。
           if (Array.isArray(value)) {
             dependArray(value)
           }
@@ -278,21 +244,21 @@ export function defineReactive (
       return value
     },
     set: function reactiveSetter (newVal) {
-      // 获取旧值
+      // 1. 正确地设置新属性值。
+      // 获取旧值。
       const value = getter ? getter.call(obj) : val
 
-      // 如果新值等于旧值，或者newVal和value均为NaN（唯一自身不严格等于自身的值），则视为无改动，直接返回
+      // 如果新值等于旧值，或者newVal和value均为NaN（唯一自身不严格等于自身的值），则视为无改动，直接返回。
       if (newVal === value || (newVal !== newVal && value !== value)) {
         return
       }
 
-      // 开发环境下调用customSetter来发出相关警告
+      // 开发环境下如果提供了customSetter，调用customSetter来发出相关警告（辅助信息）。
       if (process.env.NODE_ENV !== 'production' && customSetter) {
         customSetter()
       }
 
-      // #7981: for accessor properties without setter
-      // 进行必要的赋值操作
+      // #7981: for accessor properties without setter：进行必要的赋值操作。
       if (getter && !setter) return
       if (setter) {
         setter.call(obj, newVal)
@@ -300,9 +266,10 @@ export function defineReactive (
         val = newVal
       }
 
-      // 如果shallow为true，则不进一步深度观测；否则尝试观测newVal。
+      // 如果shallow为true，则不进一步深度观测；否则尝试观测newVal并重写childOb的值。
       childOb = !shallow && observe(newVal)
-      // 派发更新
+
+      // 2. 派发更新。
       dep.notify()
     }
   })
@@ -380,9 +347,10 @@ export function set (target: Array<any> | Object, key: any, val: any): any {
 /**
  * Delete a property and trigger change if necessary.
  */
-// 问题：直接使用delete删除一个响应式对象的已有属性，不会触发任何更新
+// 问题：直接使用delete删除一个响应式对象的已有属性，不会触发任何更新。
 // 解决方案：Vue提供了del方法，用于删除对象的属性。如果对象是响应式的，
 // 确保删除能触发视图更新（通过__ob__.dep）。
+// <T>
 export function del (target: Array<any> | Object, key: any) {
   // 开发环境下，对未定义的target或原始类型的target发出警告
   if (process.env.NODE_ENV !== 'production' &&
@@ -447,3 +415,38 @@ function dependArray (value: Array<any>) {
     }
   }
 }
+
+
+/** 
+ * 问题一
+ * 下方这个if判断一开始是没有的，这就使得调用defineReactive必须提供val。
+ * 但是提供val的话可能会触发getter，如果val本身是一个accessor。
+ * 这种情况的触发getter可能会造成一些需求上的偏差（比如程序员决定在getter里发出一些请求，并自主决定什么时候触发getter从而发出这些请求）。
+ * 因此，我们希望调用defineReactive不必须提供val，从而避免多余的触发getter。
+ * 
+ * 为了解决上面的问题，通过增加if语句，区分不提供val的两种情况：
+ * 1. obj[key]没有getter，推断是普通类型属性，不会触发额外getter，进入if语句，将obj[key]赋给val，obj[key]初始值具有响应式，最终getter通过val获取值。
+ * 2. obj[key]有getter，要避免触发额外getter，跳过if语句，obj[key]初始值不具有响应式，最终getter通过调用原始getter获取值。
+ * 
+ * 基于上述情况，有了下方的代码：
+ * if (!getter && arguments.length === 2) {
+ *   val = obj[key]
+ * }
+ * 
+ * 问题二
+ * 基于上述改动，有了新的问题：
+ * 对于既有getter也有setter的obj[key]，如果不传入val，
+ * 则observe(val)时val为undefined，从而obj[key]的初始值不会观测，childOb也会是undefined。
+ * 一直到修改obj[key]触发setter，setter中的observe(newVal)才会让obj[key]的新值被观测。
+ * 
+ * 为了解决上面的问题（初始值不被观测），我们区分不提供val的两种用法：
+ * 1. 对于 有getter没有setter 的obj[key]，不设置val；
+ * 2. 对于 有setter 或 没有getter 的obj[key]，触发getter设置val。
+ * 用法1作为问题一的解决方案，不会有多余的触发getter，但初始值也不会被观测；
+ * 用法2保证 有setter 或 没有getter 的obj[key]和原来一样，初始值会被观测。
+ * 
+ * 基于上述情况，有了下方的最终代码：
+ * if ((!getter || setter) && arguments.length === 2) {
+ *   val = obj[key]
+ * }
+ */
