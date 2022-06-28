@@ -81,7 +81,7 @@ export function initMixin (Vue: Class<Component>) {
       measure(`vue ${vm._name} init`, startTag, endTag)
     }
 
-    // 如果声明了el选项，挂载实例
+    // 如果声明了el选项，挂载实例到el选项声明的DOM元素上。
     if (vm.$options.el) {
       vm.$mount(vm.$options.el)
     }
