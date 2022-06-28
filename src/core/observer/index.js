@@ -235,7 +235,9 @@ export function defineReactive (
           childOb.dep.depend()
 
           // 如果value是数组的话，在每项数组元素的__ob__.dep上进行依赖收集，
-          // 使得Vue.set和Vue.del对数组进行操作，也能够通过__ob__.dep派发更新。
+          // 使得使用变异方法或Vue.set/del对数组元素进行操作时，也能够通过__ob__.dep派发更新。
+          // （Vue不会将数组的索引变成访问器属性，而是在拦截变异方法或Vue.set/del中通过数组的__ob__.dep来派发更新，
+          // 所以我们需要在数组的__ob__.dep上收集相应依赖。）
           if (Array.isArray(value)) {
             dependArray(value)
           }
@@ -281,19 +283,19 @@ export function defineReactive (
  * triggers change notification if the property doesn't
  * already exist.
  */
-// 问题：直接使用赋值操作符向一个响应式对象添加新属性，新属性不会具有响应式，也不会触发任何更新
-// 解决方案：Vue提供了set方法，用于向一个响应式对象（有相应Observer实例）
-// 添加新响应式属性（确保defineReactive过），并通过__ob__.dep触发视图更新。
-// 添加多个新属性可以这样写：this.obj = Object.assign({}, this.obj, {a: 'a', ...});
+// 问题：直接使用赋值操作符向一个响应式对象添加新属性，新属性不会具有响应式，也不会触发任何更新。
+// 解决方案：Vue提供set方法，用于向一个响应式对象（有相应Observer实例）
+// 添加新响应式属性（确保defineReactive过），并通过__ob__.dep派发更新。
+// 添加多个新属性可以这样写（写成赋值新对象）：this.obj = Object.assign({}, this.obj, {a: 'a', ...});
 export function set (target: Array<any> | Object, key: any, val: any): any {
-  // 开发环境下，对未定义的target或原始类型的target发出警告
+  // 开发环境下，target值为undefined/null/primitive value时发出警告。
   if (process.env.NODE_ENV !== 'production' &&
     (isUndef(target) || isPrimitive(target))
   ) {
     warn(`Cannot set reactive property on undefined, null, or primitive value: ${(target: any)}`)
   }
 
-  // target为数组，key是有效的数组索引，使用数组方法修改并返回（如果target是响应式的，则会调用数组异化方法）
+  // target为数组，key是有效的数组索引，使用异化方法修改并返回（如果target是响应式的，会调用拦截异化方法派发更新）。
   if (Array.isArray(target) && isValidArrayIndex(key)) {
     target.length = Math.max(target.length, key)
     target.splice(key, 1, val) // remove target[key] and insert val there
@@ -313,16 +315,15 @@ export function set (target: Array<any> | Object, key: any, val: any): any {
     return val
   }
 
-  // 代码运行到这里，说明正在给对象添加一个全新的属性。
+  // 代码运行到这里，说明正在给对象target添加一个全新的属性。
+
+  // 通过__ob__属性获取target对应的Observer实例。
   const ob = (target: any).__ob__
 
-  // 我们不应在运行时向 Vue实例或根data对象上 添加响应式属性。
-  // 对于上述行为不予添加，直接返回，在开发环境下发出警告。
-  // _isVue为true表示target为Vue实例；
-  // ob && ob.vmCount为true表示target为根data对象。
-  // 不允许向Vue实例添加响应式属性是为了防止属性覆盖；
-  // 不允许向根data对象添加响应式属性的原因是，根data对象没有对应的闭包中的Dep实例，
-  // 如果根data对象被依赖，根data对象通过Vue.set新增的属性无法触发更新。
+  // 两类行为不被允许，直接返回，并在开发环境下发出警告：
+  // 1. 不允许用set方法向Vue实例对象添加属性（target._isVue为真），以避免出现属性覆盖问题；
+  // 2. 不允许用set方法向根data对象添加属性（ob && ob.vmCount为真），因为根data对象本身并不是响应式的，
+  // data.__ob__并不会收集到任何依赖，从而向根data对象上添加属性也无法触发任何更新。
   if (target._isVue || (ob && ob.vmCount)) {
     process.env.NODE_ENV !== 'production' && warn(
       'Avoid adding reactive properties to a Vue instance or its root $data ' +
@@ -331,17 +332,17 @@ export function set (target: Array<any> | Object, key: any, val: any): any {
     return val
   }
 
-  // 如果target没有相应的Observer实例，则target不是响应式对象，直接给其赋值并返回
+  // 如果target没有相应的Observer实例，则target未被观察，那么就简单赋值并返回。
   if (!ob) {
     target[key] = val
     return val
   }
 
-  // target是响应式对象，调用defineReactive方法设置响应式属性
+  // target已被观察过，则调用defineReactive方法设置新的响应式属性。
   defineReactive(ob.value, key, val)
-  // 派发视图更新
+  // 派发更新。
   ob.dep.notify()
-  // 返回值
+  // 返回值。
   return val
 }
 
@@ -349,24 +350,22 @@ export function set (target: Array<any> | Object, key: any, val: any): any {
  * Delete a property and trigger change if necessary.
  */
 // 问题：直接使用delete删除一个响应式对象的已有属性，不会触发任何更新。
-// 解决方案：Vue提供了del方法，用于删除对象的属性。如果对象是响应式的，
-// 确保删除能触发视图更新（通过__ob__.dep）。
-// <T>
+// 解决方案：Vue提供del方法，用于删除对象的属性。如果对象是被观测过的，则通过__ob__.dep派发更新。
 export function del (target: Array<any> | Object, key: any) {
-  // 开发环境下，对未定义的target或原始类型的target发出警告
+  // 开发环境下，target值为undefined/null/primitive value时发出警告。
   if (process.env.NODE_ENV !== 'production' &&
     (isUndef(target) || isPrimitive(target))
   ) {
     warn(`Cannot delete reactive property on undefined, null, or primitive value: ${(target: any)}`)
   }
 
-  // target为数组，key是有效的数组索引，调用splice方法来删除
-  // 如果target是响应式对象，那么调用的会是splice相应的异化方法
+  // target为数组，key是有效的数组索引，使用异化方法来删除（如果target是响应式的，会调用拦截异化方法派发更新）。
   if (Array.isArray(target) && isValidArrayIndex(key)) {
     target.splice(key, 1)
     return
   }
 
+  // 通过__ob__属性获取target对应的Observer实例。
   const ob = (target: any).__ob__
 
   // 我们不应在运行时在 Vue实例或根data对象上 删除响应式属性。
@@ -375,6 +374,11 @@ export function del (target: Array<any> | Object, key: any) {
   // ob && ob.vmCount为true表示target为根data对象。
   // 不允许删除Vue实例上的属性是出于安全考虑；
   // 不允许删除根data对象上的属性是因为触发不了根data对象的依赖的更新（根data对象没有闭包Dep实例）
+
+  // 两类行为不被允许，直接返回，并在开发环境下发出警告：
+  // 1. 不允许用del方法删除Vue实例对象的属性（target._isVue为真），出于安全因素考虑；
+  // 2. 不允许用del方法删除根data对象的属性（ob && ob.vmCount为真），因为根data对象本身不是响应式的，
+  // data.__ob__并不会收集到任何依赖，从而删除根对象的属性无法触发任何更新。
   if (target._isVue || (ob && ob.vmCount)) {
     process.env.NODE_ENV !== 'production' && warn(
       'Avoid deleting properties on a Vue instance or its root $data ' +
@@ -383,13 +387,12 @@ export function del (target: Array<any> | Object, key: any) {
     return
   }
 
-  // 如果要删除的key并不在target对象自身上，直接返回
+  // 要删除的key并不在target对象自身上，直接返回。
   if (!hasOwn(target, key)) {
     return
   }
 
-  // 通过delete操作符删除target对象上的属性；
-  // 如果target有observer，则触发视图更新
+  // 通过delete操作符删除target对象自身上的属性；如果target被观测过，则通过target.__ob__.dep派发更新。
   delete target[key]
   if (!ob) {
     return
@@ -401,16 +404,15 @@ export function del (target: Array<any> | Object, key: any) {
  * Collect dependencies on array elements when the array is touched, since
  * we cannot intercept array element access like property getters.
  */
-// 只在defineReactive方法设置的getter中用到
+// 只在defineReactive方法设置的getter中用到：遍历数组元素，递归进行依赖收集。
 function dependArray (value: Array<any>) {
-  // 遍历数组元素，元素为e
   for (let e, i = 0, l = value.length; i < l; i++) {
     e = value[i]
 
-    // e存在且有observer的话，进行e依赖收集
+    // 数组元素存在且有observer的话，通过observer进行依赖收集。
     e && e.__ob__ && e.__ob__.dep.depend()
     
-    // 如果e是数组，递归调用dependArray方法进行依赖收集
+    // 如果e是数组，递归调用dependArray方法进行依赖收集。
     if (Array.isArray(e)) {
       dependArray(e)
     }
