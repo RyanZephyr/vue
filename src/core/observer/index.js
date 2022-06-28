@@ -58,7 +58,7 @@ export class Observer {
     this.vmCount = 0
     
     // 在数据对象上定义不可枚举的__ob__属性，指向其对应的Observer实例（即this），
-    // 主要用于对数据对象增删属性时通过__ob__.dep派发更新。
+    // 主要用于对数据对象增删属性（使用数组变异方法或Vue.set/del）时通过__ob__.dep派发更新。
     def(value, '__ob__', this)
 
     // 对value的元素/属性进行响应式化：
@@ -66,14 +66,17 @@ export class Observer {
     // value为纯对象时，调用walk()方法响应式化对象属性。
     if (Array.isArray(value)) {
       // hasProto判断当前JavaScript环境是否支持__proto__属性。
-      // 根据具体情况使用不同方法，对数组7种可以改变自身的方法提供响应式支持。
+      // 根据具体情况使用不同方法，对数组7种变异方法（可以改变数组自身的方法）提供响应式支持。
       if (hasProto) {
         // JS环境支持__proto__属性时，value.__proto__ = arrayMethods
         protoAugment(value, arrayMethods)
       } else {
-        // JS环境不支持__proto__属性时，直接将arrayMethods的所有属性赋给数组对象，其中包括数组修改拦截方法。
+        // JS环境不支持__proto__属性时，在value上定义arrayMethods的所有属性的 同名 同值 不可枚举 属性，
+        // 即7种数组变异方法的拦截方法。
         copyAugment(value, arrayMethods, arrayKeys)
       }
+
+      // 遍历数组元素，进行观测。
       this.observeArray(value)
     } else {
       this.walk(value)
@@ -110,9 +113,7 @@ export class Observer {
   }
 }
 
-// helpers
-// 只在Observer类的构造函数中用到
-
+// helpers：只在Observer类的构造函数中用到。
 /**
  * Augment a target Object or Array by intercepting
  * the prototype chain using __proto__
