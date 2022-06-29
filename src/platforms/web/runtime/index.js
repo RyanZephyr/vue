@@ -52,13 +52,15 @@ extend(Vue.options.components, platformComponents)
 // install platform patch function
 Vue.prototype.__patch__ = inBrowser ? patch : noop
 
-// public mount method
+// public mount method：el参数为字符串或DOM元素，hydrating参数用于VDOM补丁算法。
 Vue.prototype.$mount = function (
   el?: string | Element,
   hydrating?: boolean
 ): Component {
   el = el && inBrowser ? query(el) : undefined
-  return mountComponent(this, el, hydrating)
+
+  // 采用运行时版本的Vue时，需要开发者通过options.render给组件提供渲染函数，从而传给mountComponent方法。
+  return mountComponent(this, el, hydrating) 
 }
 
 // devtools global hook

@@ -74,7 +74,7 @@ export function initMixin (Vue: Class<Component>) {
     initProvide(vm) // resolve provide after data/props
     callHook(vm, 'created')
 
-    // 在DevTools-Performance-Timings中对组件初始化进行性能追踪
+    // 在DevTools-Performance-Timings中对组件初始化进行性能追踪。
     if (process.env.NODE_ENV !== 'production' && config.performance && mark) {
       vm._name = formatComponentName(vm, false)
       mark(endTag)

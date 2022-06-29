@@ -61,7 +61,7 @@ export function initLifecycle (vm: Component) {
   vm._isBeingDestroyed = false
 }
 
-// 在Vue.prototype上定义_update $forceUpdate $destroy方法
+// 在Vue.prototype上定义_update、$forceUpdate、$destroy方法。
 export function lifecycleMixin (Vue: Class<Component>) {
   Vue.prototype._update = function (vnode: VNode, hydrating?: boolean) {
     const vm: Component = this
@@ -154,7 +154,6 @@ export function mountComponent (
   if (!vm.$options.render) {
     vm.$options.render = createEmptyVNode
     if (process.env.NODE_ENV !== 'production') {
-      /* istanbul ignore if */
       if ((vm.$options.template && vm.$options.template.charAt(0) !== '#') ||
         vm.$options.el || el) {
         warn(
@@ -174,7 +173,6 @@ export function mountComponent (
   callHook(vm, 'beforeMount')
 
   let updateComponent
-  /* istanbul ignore if */
   if (process.env.NODE_ENV !== 'production' && config.performance && mark) {
     updateComponent = () => {
       const name = vm._name
