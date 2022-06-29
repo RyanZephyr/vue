@@ -145,15 +145,19 @@ export function lifecycleMixin (Vue: Class<Component>) {
   }
 }
 
+// 被/src/platforms/web/runtime/index.js中声明的Vue.prototype.$mount方法调用，真正地挂载组件。
 export function mountComponent (
   vm: Component,
   el: ?Element,
   hydrating?: boolean
 ): Component {
-  vm.$el = el
+  vm.$el = el // 在实例上添加$el属性，其值目前为作为挂载点的元素el，之后会在patch算法中被重写为实际挂载上去的组件的根元素。
+  
+  // 如果实例没有render选项，设置render选项（渲染函数）为createEmptyVNode函数，并且在开发环境下发出相关警告。
   if (!vm.$options.render) {
     vm.$options.render = createEmptyVNode
     if (process.env.NODE_ENV !== 'production') {
+      // 如果实例有可以转为模板字符串的template选项或el选项，或调用该方法时提供了el参数，则发出警告：使用的是运行时版本的Vue。
       if ((vm.$options.template && vm.$options.template.charAt(0) !== '#') ||
         vm.$options.el || el) {
         warn(
@@ -163,6 +167,7 @@ export function mountComponent (
           vm
         )
       } else {
+        // 如果实例没有可以转为模板字符串的template选项或el选项，调用该方法时也没有提供el参数，则发出警告：未定义模板或渲染函数。
         warn(
           'Failed to mount component: template or render function not defined.',
           vm
@@ -170,9 +175,15 @@ export function mountComponent (
       }
     }
   }
+
+  // 触发beforeMount生命周期钩子。
   callHook(vm, 'beforeMount')
 
+  // 定义updateComponent函数（作为下方创建Watcher实例时的第二个参数）：把渲染函数返回的虚拟DOM节点更新进真实DOM。
   let updateComponent
+  // updateComponent函数的两种初始化：
+  // 1. 开发环境下 && 性能追踪开启 && 环境支持Performance API时，初始化为带有性能追踪的版本（追踪render性能和patch性能）。
+  // 2. 否则，初始化为不带性能追踪的版本。
   if (process.env.NODE_ENV !== 'production' && config.performance && mark) {
     updateComponent = () => {
       const name = vm._name
@@ -199,6 +210,7 @@ export function mountComponent (
   // we set this to vm._watcher inside the watcher's constructor
   // since the watcher's initial patch may call $forceUpdate (e.g. inside child
   // component's mounted hook), which relies on vm._watcher being already defined
+  // render watcher
   new Watcher(vm, updateComponent, noop, {
     before () {
       if (vm._isMounted && !vm._isDestroyed) {

@@ -53,6 +53,7 @@ export default class Watcher {
   value: any;
 
   // 构造函数只做一件事：对实例属性赋值。其中expOrFn用于设置this.getter。
+  // 参数：组件实例对象vm，要观察的表达式或函数expOrFn，观察目标值变化时的回调函数cb，Watcher实例选项options，isRenderWatcher标识。
   constructor (
     vm: Component,
     expOrFn: string | Function,
