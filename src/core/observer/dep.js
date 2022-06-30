@@ -13,7 +13,7 @@ let uid = 0
  * A dep is an observable that can have multiple
  * directives subscribing to it.
  */
-// Dep实例对应数据项：一个数据项可以有多个表达式/函数（watcher）订阅
+// Dep实例对应数据项：一个数据项可以有多个表达式/函数（watcher）订阅。
 export default class Dep {
   static target: ?Watcher; // 由pushTarget和popTarget方法设置
   id: number;
@@ -42,7 +42,7 @@ export default class Dep {
     }
   }
 
-  // 派发更新：执行subs中所有watcher的update()方法。
+  // 派发更新：遍历执行subs中所有Watcher实例的update()方法。
   // 只有四个地方派发更新：Array异化方法；响应式数据项的setter；set方法；del方法。
   notify () {
     // stabilize the subscriber list first

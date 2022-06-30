@@ -44,13 +44,13 @@ export default class Watcher {
   sync: boolean; // in options，为true时该watcher的更新（重新求值和执行回调）会同步执行（默认异步执行）。
   dirty: boolean; // 只有computed watcher会用，为true时表示依赖发生了变化，但computed属性尚未更新。
   active: boolean; // 为true时表示当前Watcher实例处于激活状态，在该类的构造函数中被设为true，teardown()方法中被设为false。
-  deps: Array<Dep>; // Dep列表
-  newDeps: Array<Dep>; // 新Dep列表，只用于更新deps。
-  depIds: SimpleSet; // Dep id集合
-  newDepIds: SimpleSet; // 新Dep id集合，只用于更新depIds。
+  deps: Array<Dep>; // 总是存放 上一次求值 收集到的Dep实例对象。
+  newDeps: Array<Dep>; // 总是存放 当次求值 收集到的Dep实例对象。
+  depIds: SimpleSet; // 总是存放 上一次求值 收集到的Dep实例对象id。
+  newDepIds: SimpleSet; // 总是存放 当次求值 收集到的Dep实例对象id。
   before: ?Function; // in options，在数据变化之后，更新之前被执行（见src/core/observer/scheduler.js）。
   getter: Function; // 在构造函数中被初始化为获取expOrFn的值（同时触发get访问器函数）的函数，只在该类的get()方法中被调用。
-  value: any;
+  value: any; // 保存Watcher实例观察目标的当前值，在该类的构造函数、run()、evaluate()方法中被赋值。
 
   // 构造函数只做一件事：对实例属性赋值。其中expOrFn用于设置this.getter。
   // 参数：组件实例对象vm，要观察的表达式或函数expOrFn，观察目标值变化时的回调函数cb，Watcher实例选项options，isRenderWatcher标识。
@@ -130,11 +130,12 @@ export default class Watcher {
   /**
    * Evaluate the getter, and re-collect dependencies. 在该类的构造函数、run()、evaluate()方法中被调用。
    */
+  // 对this.getter求值并返回求得值，在求值过程中触发依赖收集。
   get () {
     // 调用pushTarget()，把当前Watcher实例入栈，设置当前Watcher实例为Dep.target。
     pushTarget(this)
 
-    let value
+    let value // 存放this.getter的最新求值，在最后返回。
     const vm = this.vm
     try {
       // 调用this.getter进行求值，求值过程中触发get访问器函数，进行依赖收集（dep.depend()）。
@@ -158,7 +159,7 @@ export default class Watcher {
       // 调用popTarget函数进行 出栈 和 重设Dep.target。
       popTarget()
       
-      // 调用cleanupDeps方法，分别基于newIds和newDeps更新depIds和deps，最后清空重置newIds和newDeps。
+      // 调用cleanupDeps方法，分别使用depIds和deps保存newIds和newDeps，然后清空newIds和newDeps。
       this.cleanupDeps()
     }
 
@@ -168,20 +169,18 @@ export default class Watcher {
   /**
    * Add a dependency to this directive.
    */
-  // 基于传入的dep，针对性地更新newDepIds newDeps和dep.subs数组。
-  // 只在Dep类的depend方法中被调用。
+  // 真正的依赖收集动作：基于传入的dep，针对性地更新newDepIds newDeps和dep.subs数组。只在Dep类的depend()方法中被调用。
   addDep (dep: Dep) {
     const id = dep.id
 
-    // 当前Dep已经在新Dep id集合中的话，则不需操作。
-    // 当前Dep不在新Dep id集合中，则更新newDepIds和newDeps。
+    // 避免重复收集依赖：传入的Dep实例id已经在newDepIds集合中的话，则无需操作（已收集过同一依赖）；
+    // 否则，更新newDepIds和newDeps（收集该依赖）。
     if (!this.newDepIds.has(id)) { 
       this.newDepIds.add(id)
       this.newDeps.push(dep)
       if (!this.depIds.has(id)) { 
-        // 同时，当前Dep不在旧Dep id集合中，说明未addSub
-        // 因此调用dep.addSub(this)方法，
-        // 将当前Watcher实例添加到dep的subs数组中
+        // 同时，如果传入的Dep实例id不在depIds集合中，则说明该Dep实例的subs数组中没有当前Watcher实例。
+        // 因此调用dep.addSub(this)方法，将当前Watcher实例添加到该Dep实例的subs数组中。
         dep.addSub(this)
       }
     }
@@ -190,12 +189,12 @@ export default class Watcher {
   /**
    * Clean up for dependency collection.
    */
-  // 只在本类的get方法中，依赖收集完成后被调用。
-  // 做了两件事：依赖清除；用newDepIds和newDeps更新depIds和deps。
-  // 依赖清除的目的：避免无关的依赖发生改变造成组件的重复渲染、watch回调等。
+  // 只在本类的get方法中，依赖收集完成后被调用。做了两件事：
+  // 依赖清除；将newDepIds和newDeps保存到depIds和deps并清空newDepIds和newDeps。
   cleanupDeps () {
-    // 依赖清除：遍历deps数组中的Dep，如果newDepIds数组中没有当前Dep的id（订阅关系已不存在），
-    // 则从当前Dep的subs数组中移除当前Watcher实例。
+    // 依赖清除：遍历deps数组中的Dep实例，如果newDepIds数组中没有当前Dep的id（订阅关系已不存在），
+    // 则从当前Dep实例的subs数组中移除当前Watcher实例。
+    // 依赖清除的目的：避免无关的依赖发生改变造成组件的重复渲染、watch回调等。
     let i = this.deps.length
     while (i--) {
       const dep = this.deps[i]
@@ -204,13 +203,13 @@ export default class Watcher {
       }
     }
     
-    // 交换newDepIds和depIds的值，并清空newDepIds
+    // 交换newDepIds和depIds的值，并清空newDepIds。
     let tmp = this.depIds
     this.depIds = this.newDepIds
     this.newDepIds = tmp
     this.newDepIds.clear()
 
-    // 交换newDeps和deps的值，并清空newDeps
+    // 交换newDeps和deps的值，并清空newDeps。
     tmp = this.deps
     this.deps = this.newDeps
     this.newDeps = tmp
@@ -221,7 +220,7 @@ export default class Watcher {
    * Subscriber interface.
    * Will be called when a dependency changes.
    */
-  // 在src/core/observer文件夹下，只在Dep类的notify方法中被调用。
+  // 只在Vue.prototype.$forceUpdate方法和Dep类的notify()方法中被调用。
   update () {
     if (this.lazy) { 
       // 当前Watcher实例为computed watcher，将this.dirty设为true，
@@ -240,8 +239,8 @@ export default class Watcher {
    * Scheduler job interface.
    * Will be called by the scheduler.
    */
-  // 只在flushSchedulerQueue方法和本类的update方法中被调用。
-  // 如果当前watcher处于激活状态，执行真正的更新变化操作（调用this.get()，更新this.value，调用this.cb）；否则不做任何操作。
+  // 只在scheduler.js文件的flushSchedulerQueue函数和本类的update方法中被调用。
+  // 只在当前Watcher实例处于激活状态时，执行真正的更新操作（调用this.get，更新this.value，调用this.cb）。
   run () {
     if (this.active) {
       // 调用this.get()方法获取新值。
