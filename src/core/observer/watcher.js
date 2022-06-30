@@ -38,18 +38,18 @@ export default class Watcher {
   expression: string;
   cb: Function;
   id: number;
-  deep: boolean; // in options，为true时可以发现对象内部值的变化
-  user: boolean; // in options
-  lazy: boolean; // in options
-  sync: boolean; // in options，为true时该watcher的更新会同步执行（默认异步执行）
-  dirty: boolean; // 只有computed watcher会用，为true时表示依赖发生了改变，但computed属性尚未更新
-  active: boolean; // 为true时表示当前watcher处于激活状态
+  deep: boolean; // in options，为true时深度观测，在该类的get()和run()方法中被使用。
+  user: boolean; // in options，为true时表示当前Watcher实例是开发者定义的（user watcher），在该类的get()和run()方法中被使用。
+  lazy: boolean; // in options，为true时表示当前Watcher实例是computed watcher。
+  sync: boolean; // in options，为true时该watcher的更新（重新求值和执行回调）会同步执行（默认异步执行）。
+  dirty: boolean; // 只有computed watcher会用，为true时表示依赖发生了变化，但computed属性尚未更新。
+  active: boolean; // 为true时表示当前Watcher实例处于激活状态，在该类的构造函数中被设为true，teardown()方法中被设为false。
   deps: Array<Dep>; // Dep列表
-  newDeps: Array<Dep>; // 新Dep列表，只用于更新deps
+  newDeps: Array<Dep>; // 新Dep列表，只用于更新deps。
   depIds: SimpleSet; // Dep id集合
-  newDepIds: SimpleSet; // 新Dep id集合，只用于更新depIds
-  before: ?Function; // in options
-  getter: Function; // 只在该类的get()方法中被调用
+  newDepIds: SimpleSet; // 新Dep id集合，只用于更新depIds。
+  before: ?Function; // in options，在数据变化之后，更新之前被执行（见src/core/observer/scheduler.js）。
+  getter: Function; // 在构造函数中被初始化为获取expOrFn的值（同时触发get访问器函数）的函数，只在该类的get()方法中被调用。
   value: any;
 
   // 构造函数只做一件事：对实例属性赋值。其中expOrFn用于设置this.getter。
@@ -63,12 +63,12 @@ export default class Watcher {
   ) {
     this.vm = vm
 
-    // 如果当前Watcher实例是render watcher，则向vm添加_watcher属性指向该watcher
+    // 如果当前Watcher实例是render watcher，则向组件实例添加_watcher属性指向组件的render watcher。
     if (isRenderWatcher) {
       vm._watcher = this
     }
 
-    // 向vm._watchers数组中添加该watcher（vm._watchers在initState方法中被初始化为数组）
+    // 向vm._watchers数组中添加该watcher（vm._watchers在initState方法中被初始化为空数组）。
     vm._watchers.push(this)
 
     // options：deep, user, lazy, sync, before
@@ -86,29 +86,29 @@ export default class Watcher {
     this.id = ++uid // uid for batching
     this.active = true
     this.dirty = this.lazy // for lazy watchers
+
+    // 用于 避免重复收集依赖、移除无用依赖 的支持数据结构。
     this.deps = []
     this.newDeps = []
     this.depIds = new Set()
     this.newDepIds = new Set()
-    // 只在开发环境下使用this.expression
+
+    // 只在开发环境下使用this.expression，用于在警告中显示当前Watcher实例观察的表达式或函数。
     this.expression = process.env.NODE_ENV !== 'production'
       ? expOrFn.toString()
       : ''
 
-    // parse expression for getter
-    // 设置this.getter
-    // 只在该类的get()方法中被调用：this.getter.call(this.vm, this.vm)
+    // parse expression for getter：设置this.getter，只在该类的get()方法中被调用：this.getter.call(this.vm, this.vm)。
     if (typeof expOrFn === 'function') {
-      // expOrFn为函数，直接将函数赋给this.getter
+      // expOrFn为函数，直接将函数赋给this.getter。
       this.getter = expOrFn
     } else {
-      // expOrFn为表达式，
-      // 但是表达式可能是'a'，也可能是'a.x'这种形式，
-      // 通过调用parsePath方法，统一解析并返回一个需要传入vm的getter函数
+      // expOrFn为表达式，但是表达式可能是'c'，也可能是'a.b.c'这种形式，
+      // 所以调用parsePath函数，解析表达式并返回一个需要传入组件实例的getter函数。
       this.getter = parsePath(expOrFn)
 
-      // expOrFn表达式中存在非法字符，无法解析，则this.getter为undefined
-      // 这种情况下，设置this.getter为noop
+      // expOrFn表达式中存在非法字符，无法解析，则this.getter为undefined。
+      // 这种情况下，设置this.getter为noop，并在开发环境下发出警告。
       if (!this.getter) {
         this.getter = noop
         process.env.NODE_ENV !== 'production' && warn(
@@ -120,31 +120,25 @@ export default class Watcher {
       }
     }
 
-    // 通过this.lazy判断该watcher是否为computed watcher。
-    // 如果是则this.value取undefined，即暂时不获取computed watcher对应的值
-    // 否则马上调用this.get()进行求值。
+    // 通过this.lazy判断当前Watcher实例是否为computed watcher。
+    // 如果是则this.value取undefined，即暂时不获取computed watcher对应的值；否则马上调用this.get()进行求值。
     this.value = this.lazy
       ? undefined
       : this.get()
   }
 
   /**
-   * Evaluate the getter, and re-collect dependencies.
+   * Evaluate the getter, and re-collect dependencies. 在该类的构造函数、run()、evaluate()方法中被调用。
    */
-  // 在该类的构造函数中会调用
   get () {
-    // 调用pushTarget()，把当前Watcher实例入栈，设置当前Watcher实例为Dep.target
+    // 调用pushTarget()，把当前Watcher实例入栈，设置当前Watcher实例为Dep.target。
     pushTarget(this)
 
     let value
     const vm = this.vm
     try {
-      // 调用this.getter进行求值，同时触发依赖收集dep.depend()。
-      // dep.depend()调用该Watcher实例的addDep()方法。
-      // addDep()针对性地更新newIds和newDeps。
-      // 依赖收集完成后，调用cleanupDeps方法，
-      // 交换newDepIds和depIds的值，并清空newDepIds，
-      // 交换newDeps和deps的值，并清空newDeps。
+      // 调用this.getter进行求值，求值过程中触发get访问器函数，进行依赖收集（dep.depend()）。
+      // dep.depend()调用Dep.target的addDep方法；addDep方法针对性地更新newIds和newDeps。
       value = this.getter.call(vm, vm)
     } catch (e) {
       if (this.user) {
@@ -160,9 +154,11 @@ export default class Watcher {
         traverse(value)
       }
 
-      // 当前Watcher（即Dep.target）的依赖收集完成，
-      // 调用popTarget()进行 出栈 和 重设Dep.target。
+      // 当前Watcher实例（即Dep.target）的依赖收集完成，
+      // 调用popTarget函数进行 出栈 和 重设Dep.target。
       popTarget()
+      
+      // 调用cleanupDeps方法，分别基于newIds和newDeps更新depIds和deps，最后清空重置newIds和newDeps。
       this.cleanupDeps()
     }
 
