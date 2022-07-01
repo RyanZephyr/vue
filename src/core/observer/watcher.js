@@ -35,7 +35,7 @@ let uid = 0
 // user watcher对应watch配置项对象中的key
 export default class Watcher {
   vm: Component;
-  expression: string;
+  expression: string; // 用于提供警告信息，开发环境下为Watcher实例的观察目标（expOrFn）的字符串表示，生产环境下为空字符串。
   cb: Function;
   id: number;
   deep: boolean; // in options，为true时深度观测，在该类的get()和run()方法中被使用。
@@ -246,7 +246,8 @@ export default class Watcher {
       // 调用this.get()方法获取新值。
       const value = this.get()
 
-      // 三种情况下执行更新变化操作：新值不等于旧值；新值是个对象；深度观测（this.deep为true）
+      // 三种情况下更新this.value、执行this.cb：新值不等于旧值；新值是个对象；当前Watcher实例配置了深度观测（this.deep为true）。
+      // 注：render watcher的更新不会进入该if语句，因为this.get()始终返回undefined。
       if (
         value !== this.value ||
         // Deep watchers and watchers on Object/Arrays should fire even
@@ -255,17 +256,17 @@ export default class Watcher {
         isObject(value) ||
         this.deep
       ) {
-        // set new value
+        // set new value：更新this.value。
         const oldValue = this.value
         this.value = value
 
-        // 执行this.cb
+        // 执行this.cb。
         if (this.user) {
-          // 当前watcher是user watcher，通过调用invokeWithErrorHandling方法来执行this.cb
+          // 当前watcher是user watcher，通过调用invokeWithErrorHandling函数来执行this.cb。
           const info = `callback for watcher "${this.expression}"`
           invokeWithErrorHandling(this.cb, this.vm, [value, oldValue], this.vm, info)
         } else {
-          // 当前watcher不是user watcher，直接使用call方法来执行this.sub
+          // 当前watcher是computed watcher，直接使用call方法来执行this.sub。
           this.cb.call(this.vm, value, oldValue)
         }
       }
