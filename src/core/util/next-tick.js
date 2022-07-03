@@ -1,5 +1,7 @@
 /* @flow */
 /* globals MutationObserver */
+// 三个变量：isUsingMicroTask、callbacks、pending
+// 三个函数：flushCallbacks、timerFunc、nextTick
 
 import { noop } from 'shared/util'
 import { handleError } from './error'
@@ -10,9 +12,9 @@ export let isUsingMicroTask = false
 const callbacks = []
 let pending = false // 为true表示回调队列正在等待刷新，不为空。
 
-// 将pending状态还原为false，取callbacks数组的copy，清空callbacks数组，执行copy中的所有回调。
+// 只在timerFunc方法中被调用。当flushCallbacks函数执行时，callbacks队列中包含了本次事件循环中所有通过nextTick函数注册的callback。
+// 将pending状态重置为false，取callbacks队列的copy，清空callbacks队列，执行copy中的所有callback。
 // 借助copy，使得 回调中的nextTick调用 注册新的micro/macrotask来执行新的回调。
-// 只在timerFunc方法中被调用。
 function flushCallbacks () {
   pending = false
   const copies = callbacks.slice(0)
@@ -33,7 +35,7 @@ function flushCallbacks () {
 // where microtasks have too high a priority and fire in between supposedly
 // sequential events (e.g. #4521, #6690, which have workarounds)
 // or even between bubbling of the same event (#6566).
-let timerFunc // 只在nextTick方法中被调用，将flushCallbacks方法注册为microtask或macrotask
+let timerFunc // 只在nextTick函数中被调用，用于将flushCallbacks函数注册为microtask或macrotask。
 
 // The nextTick behavior leverages the microtask queue, which can be accessed
 // via either native Promise.then or MutationObserver.
@@ -42,8 +44,7 @@ let timerFunc // 只在nextTick方法中被调用，将flushCallbacks方法注�
 // completely stops working after triggering a few times... so, if native
 // Promise is available, we will use it:
 // 首选Promise，然后是用MutationObserver、setImmediate、setTimeout，来实现timerFunc。
-// 使用Promise或MutationObserver时（均借助microtask队列），
-// 标记isUsingMicroTask为true。
+// 使用Promise或MutationObserver时（均借助microtask队列），标记isUsingMicroTask为true。
 if (typeof Promise !== 'undefined' && isNative(Promise)) {
   const p = Promise.resolve()
   timerFunc = () => {
@@ -79,7 +80,7 @@ if (typeof Promise !== 'undefined' && isNative(Promise)) {
 } else if (typeof setImmediate !== 'undefined' && isNative(setImmediate)) {
   // Fallback to setImmediate.
   // Technically it leverages the (macro) task queue,
-  // but it is still a better choice than setTimeout.
+  // but it is still a better choice than setTimeout. （setImmediate无需做超时检测，比setTimeout性能更好）
   timerFunc = () => {
     setImmediate(flushCallbacks)
   }
@@ -94,10 +95,10 @@ if (typeof Promise !== 'undefined' && isNative(Promise)) {
 export function nextTick (cb?: Function, ctx?: Object) {
   let _resolve
 
-  // 包裹传入的cb并收集到callbacks数组中。
+  // 用一个函数包裹传入的cb，将该函数添加到callbacks队列中。
   callbacks.push(() => {
     if (cb) {
-      // 如果有传入cb，则在ctx作用域下执行cb
+      // 如果有传入cb，则在ctx作用域下执行cb。
       try {
         cb.call(ctx)
       } catch (e) {
@@ -109,14 +110,13 @@ export function nextTick (cb?: Function, ctx?: Object) {
     }
   })
 
-  // 如果未处于pending状态，则进入pending状态，并调用timerFunc()方法等待刷新。
+  // pending为false，表示当前callbacks队列未被计划执行，则将pending设为true，然后调用timerFunc函数来计划执行callbacks队列。
   if (!pending) {
     pending = true
     timerFunc()
   }
 
-  // 如果没有传入cb并且当前环境支持Promise，
-  // 则返回一个Promise，来支持下面这种用法：
+  // 如果没有传入cb并且当前环境支持Promise，则返回一个Promise，来支持下面这种用法：
   // Vue.nextTick().then(function() {
   //   // 此时DOM已更新，做一些事情
   // })

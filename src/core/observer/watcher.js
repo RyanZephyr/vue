@@ -150,13 +150,12 @@ export default class Watcher {
     } finally {
       // "touch" every property so they are all tracked as
       // dependencies for deep watching
-      // 如果this.deep为true，则触发每个深层属性的依赖收集。
+      // 如果this.deep为true，则递归遍历value的所有子属性，进行依赖收集。
       if (this.deep) {
         traverse(value)
       }
 
-      // 当前Watcher实例（即Dep.target）的依赖收集完成，
-      // 调用popTarget函数进行 出栈 和 重设Dep.target。
+      // 当前Watcher实例（即Dep.target）的依赖收集完成，调用popTarget函数进行 出栈 和 重设Dep.target。
       popTarget()
       
       // 调用cleanupDeps方法，分别使用depIds和deps保存newIds和newDeps，然后清空newIds和newDeps。
@@ -298,18 +297,26 @@ export default class Watcher {
   /**
    * Remove self from all dependencies' subscriber list.
    */
+  // 在 Vue.prototype.$destroy方法 和 Vue.prototype.$watch方法返回的函数 中被调用。
   teardown () {
+    // 如果this.active为假，则说明当前Watcher实例已经被teardown过，不处于激活状态，无需任何操作。
+    // 如果this.active为真，则进行teardown操作。
     if (this.active) {
       // remove self from vm's watcher list
       // this is a somewhat expensive operation so we skip it
       // if the vm is being destroyed.
+      // 由于性能开支较大，如果组件实例正处于销毁阶段（或已被销毁），则不进行从vm._watchers数组中移除当前Watcher实例的操作（直接销毁）。
+      // 如果组件实例不处于销毁阶段，则需要从vm._watchers数组中移除当前Watcher实例。
       if (!this.vm._isBeingDestroyed) {
         remove(this.vm._watchers, this)
       }
+
+      // 将当前Watcher实例从this.deps数组中的所有Dep实例的subs数组中移除（取消所有订阅）。
       let i = this.deps.length
       while (i--) {
         this.deps[i].removeSub(this)
       }
+
       this.active = false
     }
   }

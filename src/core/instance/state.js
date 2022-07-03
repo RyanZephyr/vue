@@ -47,7 +47,7 @@ export function proxy (target: Object, sourceKey: string, key: string) {
   Object.defineProperty(target, key, sharedPropertyDefinition)
 }
 
-// 初始化$options中的props、methods、data、computed、watch
+// 初始化$options中的props、methods、data、computed、watch。
 export function initState (vm: Component) {
   vm._watchers = [] // 向实例添加_watchers属性，一个用于存放实例所有watcher对象的数组。
 
@@ -342,9 +342,11 @@ function initMethods (vm: Component, methods: Object) {
 }
 
 function initWatch (vm: Component, watch: Object) {
-  // 遍历watch
+  // 遍历vm.$options.watch对象的可枚举键key: handler。
   for (const key in watch) {
     const handler = watch[key]
+
+    // handler可以是一个数组；通过调用createWatcher函数来创建Watcher实例。
     if (Array.isArray(handler)) {
       for (let i = 0; i < handler.length; i++) {
         createWatcher(vm, key, handler[i])
@@ -355,7 +357,8 @@ function initWatch (vm: Component, watch: Object) {
   }
 }
 
-// 规范化watch参数，然后把规范化后的参数传递给vm.$watch()方法
+// 在本文件的initWatch函数和Vue.prototype.$watch方法中被调用：
+// 规范化纯对象形式的参数（handler），然后把规范化后的参数传递给vm.$watch方法并返回调用结果。
 function createWatcher (
   vm: Component,
   expOrFn: string | Function,
@@ -366,17 +369,16 @@ function createWatcher (
     options = handler
     handler = handler.handler
   }
-  // watch的handler可以直接声明为定义在method中的回调函数的名称
+
+  // watch的handler可以直接声明为定义在method中的回调的名称。
   if (typeof handler === 'string') {
     handler = vm[handler]
   }
+
   return vm.$watch(expOrFn, handler, options)
 }
 
-// 在Vue.prototype上定义：
-// 1. $data、$props属性
-// 2. $set、$delete方法
-// 3. $watch方法
+// 在Vue.prototype上定义：$data、$props属性；$set、$delete、$watch方法。
 export function stateMixin (Vue: Class<Component>) {
   // flow somehow has problems with directly declared definition object
   // when using Object.defineProperty, so we have to procedurally build up
@@ -407,25 +409,35 @@ export function stateMixin (Vue: Class<Component>) {
   Vue.prototype.$set = set
   Vue.prototype.$delete = del
 
-  // 创建Watcher实例、返回unwatchFn()函数
+  // 用于观察数据对象的某个属性，当属性变化时执行回调。本质上创建了一个Watcher类实例，并返回unwatchFn()函数。
   Vue.prototype.$watch = function (
     expOrFn: string | Function,
     cb: any,
     options?: Object
   ): Function {
     const vm: Component = this
+
+    // cb为纯对象时，调用createWatcher函数（用于规范化参数，最后调用$watch方法并返回结果）。
     if (isPlainObject(cb)) {
       return createWatcher(vm, expOrFn, cb, options)
     }
+
+    // cb为函数。
+
+    // 创建Watcher类实例。
     options = options || {}
     options.user = true
     const watcher = new Watcher(vm, expOrFn, cb, options)
+
+    // options.immediate为真，则立即执行回调。
     if (options.immediate) {
       const info = `callback for immediate watcher "${watcher.expression}"`
-      pushTarget()
-      invokeWithErrorHandling(cb, vm, [watcher.value], vm, info)
-      popTarget()
+      pushTarget() // 暂停依赖收集，避免无关依赖被当前render watcher收集。
+      invokeWithErrorHandling(cb, vm, [watcher.value], vm, info) // 对于在创建时立即执行的回调，其传入参数只有新值，没有旧值。
+      popTarget() // 恢复依赖收集。
     }
+
+    // 返回unwatchFn函数，调用watcher.teardown方法解除观察。
     return function unwatchFn () {
       watcher.teardown()
     }
