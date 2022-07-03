@@ -203,19 +203,20 @@ export function getData (data: Function, vm: Component): any {
 const computedWatcherOptions = { lazy: true }
 
 function initComputed (vm: Component, computed: Object) {
-  // $flow-disable-line
+  // 定义vm_computedWatcher属性，初始化为空对象，并定义watchers常量引用该对象。
   const watchers = vm._computedWatchers = Object.create(null)
   // computed properties are just getters during SSR
   const isSSR = isServerRendering()
 
-  // 遍历所有的computed属性
-  // 1. 获取当前computed属性的getter，如果getter为null则在开发环境下发出警告
-  // 2. 在非服务端渲染的情况下，在_computedWatchers上新建一个Watcher实例
-  // 3. 如果当前computed属性名不与vm实例已有属性存在冲突，则调用definedComputed方法，
-  // 否则，在开发环境下判断具体冲突并发出相应警告。
+  // 遍历所有的computed属性，初始化每项computed属性。初始化主要包括两件事：
+  // 1. 在非服务端渲染的情况下，创建当前computed属性的Watcher实例，并添加到vm._computedWatchers属性对象上。
+  // 2. 调用definedComputed函数，在当前组件实例对象上定义computed属性（同名访问器属性）。
   for (const key in computed) {
+    // 获取当前computed属性的getter。
     const userDef = computed[key]
     const getter = typeof userDef === 'function' ? userDef : userDef.get
+
+    // 在开发环境下，若getter不存在，则发出警告。
     if (process.env.NODE_ENV !== 'production' && getter == null) {
       warn(
         `Getter is missing for computed property "${key}".`,
@@ -223,19 +224,23 @@ function initComputed (vm: Component, computed: Object) {
       )
     }
 
+    // 非服务端渲染下，创建当前computed属性的Watcher实例，并添加到vm._computedWatchers属性对象上。
+    // 服务端渲染下，计算属性的实现本质上与methods选项基本一致。
     if (!isSSR) {
       // create internal watcher for the computed property.
       watchers[key] = new Watcher(
         vm,
         getter || noop,
         noop,
-        computedWatcherOptions
+        computedWatcherOptions /* lazy: true */
       )
     }
 
     // component-defined computed properties are already defined on the
     // component prototype. We only need to define computed properties defined
     // at instantiation here.
+    // 如果当前computed属性名并不存在于组件实例对象上，则调用definedComputed函数在传入的组件实例vm上定义当前computed属性；
+    // 否则，在开发环境下判断冲突来源（data、props、methods）并发出相应警告。
     if (!(key in vm)) {
       defineComputed(vm, key, userDef)
     } else if (process.env.NODE_ENV !== 'production') {
@@ -250,18 +255,22 @@ function initComputed (vm: Component, computed: Object) {
   }
 }
 
+// 只在上方的initComputed函数和/src/core/global-api/extend.js中的initComputed函数中被调用，
+// 用于在target对象上定义计算属性（accessor属性）。
 export function defineComputed (
   target: any,
   key: string,
   userDef: Object | Function
 ) {
+  // 在非服务端渲染的情况下计算属性需要缓存值。
   const shouldCache = !isServerRendering()
 
-  // 设置getter和setter
+  // 设置sharedPropertyDefinition.get和sharedPropertyDefinition.set方法。
   if (typeof userDef === 'function') {
     sharedPropertyDefinition.get = shouldCache
       ? createComputedGetter(key)
       : createGetterInvoker(userDef)
+
     sharedPropertyDefinition.set = noop
   } else {
     sharedPropertyDefinition.get = userDef.get
@@ -269,10 +278,12 @@ export function defineComputed (
         ? createComputedGetter(key)
         : createGetterInvoker(userDef.get)
       : noop
+    
     sharedPropertyDefinition.set = userDef.set || noop
   }
 
-  // 开发环境下，提供缺省setter来发出警告
+  // 在开发环境下，如果sharedPropertyDefinition.set为noop，则说明开发者未提供当前计算属性的set。
+  // 那么，重写sharedPropertyDefinition.set方法，该方法在被调用时发出警告：尝试向当前计算属性赋值，但该计算属性没有setter。
   if (process.env.NODE_ENV !== 'production' &&
       sharedPropertyDefinition.set === noop) {
     sharedPropertyDefinition.set = function () {
@@ -288,7 +299,12 @@ export function defineComputed (
 
 function createComputedGetter (key) {
   return function computedGetter () {
+    // 获取当前计算属性对应的Watcher实例。
     const watcher = this._computedWatchers && this._computedWatchers[key]
+    // computed watcher存在，则做三件事：
+    // 1. 如果watcher.dirty为真，调用watcher的evaluate方法进行求值（同时进行computed watcher的依赖收集），并将watcher.dirty重设为假；
+    // 2. 如果Dep.target存在（一定是render watcher），调用watcher的depend方法进行render watcher的依赖收集；
+    // 3. 返回watcher的value属性值。
     if (watcher) {
       if (watcher.dirty) {
         watcher.evaluate()
@@ -298,6 +314,7 @@ function createComputedGetter (key) {
       }
       return watcher.value
     }
+    // computed watcher不存在，不做任何事。
   }
 }
 

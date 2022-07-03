@@ -276,7 +276,7 @@ export default class Watcher {
    * Evaluate the value of the watcher.
    * This only gets called for lazy watchers.
    */
-  // 只在createComputedGetter方法返回的计算属性getter中被调用。
+  // 只在createComputedGetter函数返回的计算属性getter中被调用，对计算属性进行求值并重设this.dirty为false。
   evaluate () {
     this.value = this.get()
     this.dirty = false
@@ -285,8 +285,7 @@ export default class Watcher {
   /**
    * Depend on all deps collected by this watcher.
    */
-  // 只在createComputedGetter返回的计算属性getter中被调用。
-  // 调用deps数组中所有dep的depend方法，收集该Watcher实例的所有依赖。
+  // 只在createComputedGetter函数返回的计算属性getter中被调用：调用deps数组中所有dep的depend方法，收集该Watcher实例的所有依赖。
   depend () {
     let i = this.deps.length
     while (i--) {
