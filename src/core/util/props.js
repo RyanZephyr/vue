@@ -1,4 +1,5 @@
 /* @flow */
+// 只导出一个函数：validateProp。
 
 import { warn } from './debug'
 import { observe, toggleObserving, shouldObserve } from '../observer/index'
@@ -18,27 +19,28 @@ type PropOptions = {
   validator: ?Function
 };
 
+// 校验prop，求值并返回。
 export function validateProp (
   key: string,
   propOptions: Object,
   propsData: Object,
   vm?: Component
 ): any {
-  const prop = propOptions[key] // prop的定义
-  const absent = !hasOwn(propsData, key) // 是否有传入值
-  let value = propsData[key] // 传入值
-  // boolean casting
+  const prop = propOptions[key] // 获取当前prop的定义。
+  const absent = !hasOwn(propsData, key) //标识当前prop是否缺失传入值。
+  let value = propsData[key] // 获取当前prop的传入值。
+
+  // boolean casting：获取Boolean在prop.type（可以是数组）的index。
   const booleanIndex = getTypeIndex(Boolean, prop.type)
 
-  // 处理包含Boolean类型的prop
+  // booleanIndex > -1，说明prop.type包括Boolean，预先处理两种情况：
+  // 1. 当前prop缺失传入值，且没有定义prop.default，则value取false。
+  // 2. 传入值为空字符串（<a someProp>即<a someProp="">）或prop名字的kebab-case（<a someProp='some-prop'>）时，
+  //    在Boolean类型先于（优先级高于）String类型时，value取true。
   if (booleanIndex > -1) {
     if (absent && !hasOwn(prop, 'default')) {
-      // 没有传入值，没有默认值，则取false
       value = false
     } else if (value === '' || value === hyphenate(key)) {
-      // 传入值为空字符串（<... custom-attr>）或为prop名字（<... custom-attr='custom-attr'>）
-      // 在Boolean类型优先级高于String类型优先级时
-      // 取Boolean类型值true
       // only cast empty string / same name to boolean if
       // boolean has higher priority
       const stringIndex = getTypeIndex(String, prop.type)
@@ -50,12 +52,12 @@ export function validateProp (
 
   // check default value
   if (value === undefined) {
-    value = getPropDefaultValue(vm, prop, key)
+    value = getPropDefaultValue(vm, prop, key) // 获取prop默认值。
     // since the default value is a fresh copy,
     // make sure to observe it.
+    // 默认值是写在prop定义中的
     // 默认值如果为对象或数组，那么其与父组件没有关系，并未被observe，
-    // 因此需要在此开启observe并observe默认值，
-    // 然后恢复之前的observe状态。
+    // 因此需要在此开启observe并observe默认值，然后恢复之前的observe状态。
     const prevShouldObserve = shouldObserve
     toggleObserving(true)
     observe(value)
@@ -82,7 +84,9 @@ function getPropDefaultValue (vm: ?Component, prop: PropOptions, key: string): a
   if (!hasOwn(prop, 'default')) {
     return undefined
   }
+
   const def = prop.default
+
   // warn against non-factory defaults for Object & Array
   if (process.env.NODE_ENV !== 'production' && isObject(def)) {
     warn(
@@ -92,6 +96,7 @@ function getPropDefaultValue (vm: ?Component, prop: PropOptions, key: string): a
       vm
     )
   }
+
   // the raw prop value was also undefined from previous render,
   // return previous default value to avoid unnecessary watcher trigger
   if (vm && vm.$options.propsData &&
@@ -100,6 +105,7 @@ function getPropDefaultValue (vm: ?Component, prop: PropOptions, key: string): a
   ) {
     return vm._props[key]
   }
+  
   // call factory function for non-Function types
   // a value is Function if its prototype is function even across different execution context
   return typeof def === 'function' && getType(prop.type) !== 'Function'

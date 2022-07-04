@@ -65,7 +65,7 @@ export function initState (vm: Component) {
   }
 }
 
-// 主要在for循环中做三件事情：props校验和求值、props响应式、props代理。
+// 主要在for循环中做三件事情：prop校验和求值、定义响应式prop、设置prop代理。
 function initProps (vm: Component, propsOptions: Object) {
   const propsData = vm.$options.propsData || {} // 存放传入组件的props数据的对象
   const props = vm._props = {}
@@ -75,21 +75,24 @@ function initProps (vm: Component, propsOptions: Object) {
   const isRoot = !vm.$parent // 标识当前实例是否为根组件实例。
 
   // root instance props should be converted
-  // 如果props来自父组件，那么props数据已经被观察过，因此暂时关闭observe，并在initProps结束时重新开启observe。
+  // 如果当前组件实例不是根组件实例，则props来自父组件，那么prop已经被观测过，
+  // 为避免重复观测，暂时关闭观测，并在initProps结束时重新开启观测。
   if (!isRoot) {
     toggleObserving(false)
   }
 
-  // 遍历props。
+  // 遍历props选项中的每个prop。
   for (const key in propsOptions) {
-    keys.push(key)
+    keys.push(key) // 1. 将当前prop的key添加到keys数组（即vm.$options._propKeys）中。
 
-    // 校验求值当前prop
-    const value = validateProp(key, propsOptions, propsData, vm)
+    const value = validateProp(key, propsOptions, propsData, vm) // 2. 对当前prop进行校验和求值。
 
-    // 调用defineReactive()方法，使当前prop响应式化
+    // 3. 调用defineReactive()函数，在vm._props对象上定义响应式prop属性。
     if (process.env.NODE_ENV !== 'production') {
+       // 开发环境下，调用hyphenate函数将key转为全小写kebab-case。
       const hyphenatedKey = hyphenate(key)
+      
+      // 如果hyphenatedKey是保留属性，发出警告信息：不能将保留属性的名字用作prop的名字。
       if (isReservedAttribute(hyphenatedKey) ||
           config.isReservedAttr(hyphenatedKey)) {
         warn(
@@ -97,7 +100,8 @@ function initProps (vm: Component, propsOptions: Object) {
           vm
         )
       }
-      // 开发环境下提供自定义setter，阻止在子组件中直接修改父组件传递的props值
+
+      // 调用defineReactive函数，提供自定义setter，发出警告：不要在子组件中直接修改父组件传递的prop。
       defineReactive(props, key, value, () => {
         if (!isRoot && !isUpdatingChildComponent) {
           warn(
@@ -116,7 +120,8 @@ function initProps (vm: Component, propsOptions: Object) {
     // static props are already proxied on the component's prototype
     // during Vue.extend(). We only need to proxy props defined at
     // instantiation here.
-    // 调用proxy()方法，设置当前prop的代理
+    // 4. 调用proxy函数，设置vm._props.key的代理：vm.key。
+    // 针对子组件的优化：只当key不在组件实例对象上时设置代理，因为对于子组件来说已经在Vue.extend函数中完成代理设置。
     if (!(key in vm)) {
       proxy(vm, `_props`, key)
     }

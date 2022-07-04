@@ -179,7 +179,7 @@ export const capitalize = cached((str: string): string => {
  */
 const hyphenateRE = /\B([A-Z])/g
 export const hyphenate = cached((str: string): string => {
-  return str.replace(hyphenateRE, '-$1').toLowerCase()
+  return str.replace(hyphenateRE, '-$1').toLowerCase() // 先将所有非边界的大写字母A替换为-A，再将整个str转小写。
 })
 
 /**
