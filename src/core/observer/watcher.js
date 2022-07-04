@@ -223,7 +223,7 @@ export default class Watcher {
   update () {
     if (this.lazy) { 
       // 当前Watcher实例为computed watcher，将this.dirty设为true，
-      // 表示computed属性的依赖发生了变更（脏了），需要重新估值。
+      // 表示computed属性的依赖发生了变更（脏了），需要重新估值（延迟重新估值到尝试访问值时，见/src/instance/state.js中的createComputedGetter函数）。
       this.dirty = true
     } else if (this.sync) {
       // this.sync为true，表示同步更新，从而直接调用this.run()。
@@ -285,7 +285,7 @@ export default class Watcher {
   /**
    * Depend on all deps collected by this watcher.
    */
-  // 只在createComputedGetter函数返回的计算属性getter中被调用：调用deps数组中所有dep的depend方法，收集该Watcher实例的所有依赖。
+  // 只在createComputedGetter函数返回的计算属性getter中被调用：调用deps数组中所有dep的depend方法，让Dep.target收集所有dep。
   depend () {
     let i = this.deps.length
     while (i--) {

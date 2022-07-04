@@ -303,7 +303,7 @@ function createComputedGetter (key) {
     const watcher = this._computedWatchers && this._computedWatchers[key]
     // computed watcher存在，则做三件事：
     // 1. 如果watcher.dirty为真，调用watcher的evaluate方法进行求值（同时进行computed watcher的依赖收集），并将watcher.dirty重设为假；
-    // 2. 如果Dep.target存在（一定是render watcher），调用watcher的depend方法进行render watcher的依赖收集；
+    // 2. 如果Dep.target存在（一定是render watcher），调用watcher的depend方法，让Dep.target收集computed watcher的所有依赖；
     // 3. 返回watcher的value属性值。
     if (watcher) {
       if (watcher.dirty) {
