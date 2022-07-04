@@ -87,7 +87,7 @@ function getPropDefaultValue (vm: ?Component, prop: PropOptions, key: string): a
 
   const def = prop.default
 
-  // warn against non-factory defaults for Object & Array
+  // warn against non-factory defaults for Object & Array：防止多个组件实例引用同一数据对象导致的问题。
   if (process.env.NODE_ENV !== 'production' && isObject(def)) {
     warn(
       'Invalid default value for prop "' + key + '": ' +
@@ -105,7 +105,7 @@ function getPropDefaultValue (vm: ?Component, prop: PropOptions, key: string): a
   ) {
     return vm._props[key]
   }
-  
+
   // call factory function for non-Function types
   // a value is Function if its prototype is function even across different execution context
   return typeof def === 'function' && getType(prop.type) !== 'Function'
