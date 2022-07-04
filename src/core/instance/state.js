@@ -65,23 +65,22 @@ export function initState (vm: Component) {
   }
 }
 
-// 主要在for循环中做三件事情：
-// props校验和求值 props响应式 props代理
+// 主要在for循环中做三件事情：props校验和求值、props响应式、props代理。
 function initProps (vm: Component, propsOptions: Object) {
-  const propsData = vm.$options.propsData || {}
+  const propsData = vm.$options.propsData || {} // 存放传入组件的props数据的对象
   const props = vm._props = {}
   // cache prop keys so that future props updates can iterate using Array
   // instead of dynamic object key enumeration.
-  const keys = vm.$options._propKeys = []
-  const isRoot = !vm.$parent
+  const keys = vm.$options._propKeys = []  // 存放当前组件实例所有prop key
+  const isRoot = !vm.$parent // 标识当前实例是否为根组件实例。
+
   // root instance props should be converted
-  // 如果props来自父组件，那么props相关的数据已经处于被观察状态，
-  // 因此暂时关闭observe，并在initProps结束时重新开启observe
+  // 如果props来自父组件，那么props数据已经被观察过，因此暂时关闭observe，并在initProps结束时重新开启observe。
   if (!isRoot) {
     toggleObserving(false)
   }
 
-  // 遍历props
+  // 遍历props。
   for (const key in propsOptions) {
     keys.push(key)
 
