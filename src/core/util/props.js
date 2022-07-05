@@ -55,16 +55,14 @@ export function validateProp (
     value = getPropDefaultValue(vm, prop, key) // 获取prop默认值。
     // since the default value is a fresh copy,
     // make sure to observe it.
-    // 默认值是写在prop定义中的
-    // 默认值如果为对象或数组，那么其与父组件没有关系，并未被observe，
-    // 因此需要在此开启observe并observe默认值，然后恢复之前的observe状态。
+    // 默认值是写在prop定义中，所以是非响应式的。因此需要在此开启观测并观测默认值，然后恢复之前的观测状态。
     const prevShouldObserve = shouldObserve
     toggleObserving(true)
     observe(value)
     toggleObserving(prevShouldObserve)
   }
 
-  // 在开发环境下对存在的问题发出相关警告
+  // 在开发环境下调用assertProp函数，对prop进行校验，发出相关警告。
   if (
     process.env.NODE_ENV !== 'production' &&
     // skip validation for weex recycle-list child component props
@@ -98,7 +96,7 @@ function getPropDefaultValue (vm: ?Component, prop: PropOptions, key: string): a
   }
 
   // the raw prop value was also undefined from previous render,
-  // return previous default value to avoid unnecessary watcher trigger
+  // return previous default value to avoid unnecessary watcher trigger：如果前次也是取非空默认值，则返回前次默认值（同一引用）来避免不必要的watcher更新。
   if (vm && vm.$options.propsData &&
     vm.$options.propsData[key] === undefined &&
     vm._props[key] !== undefined
@@ -114,7 +112,7 @@ function getPropDefaultValue (vm: ?Component, prop: PropOptions, key: string): a
 }
 
 /**
- * Assert whether a prop is valid.
+ * Assert whether a prop is valid. 只在validateProp函数中被调用。
  */
 function assertProp (
   prop: PropOptions,
@@ -123,7 +121,7 @@ function assertProp (
   vm: ?Component,
   absent: boolean
 ) {
-  // 是否提供了必须的prop
+  // 如果未提供prop.required=true的prop的值（不考虑默认值），发出警告并直接返回。
   if (prop.required && absent) {
     warn(
       'Missing required prop: "' + name + '"',
@@ -131,30 +129,32 @@ function assertProp (
     )
     return
   }
+
+  // 如果value为null或undefined，且prop不是必须的，则无需后需校验，直接返回。
   if (value == null && !prop.required) {
     return
   }
 
-  // 注意：type为null时，prop值可以为任意类型
+  // 类型断言：判断传入的prop值的类型是否符合prop.type（注：prop.type为null/undefined/true时，prop值可以为任意类型）。
   let type = prop.type
-  let valid = !type || type === true
+  let valid = !type || type === true // 类型断言是否通过的标志。
   const expectedTypes = []
   if (type) {
-    if (!Array.isArray(type)) { // type不是数组，则将其转为只有一个元素的数组
+    if (!Array.isArray(type)) { // 如果type不是数组，则将其转为只有一个元素的数组。
       type = [type]
     }
+
+    // 一旦某个类型通过断言，valid就变为真，并结束for循环。
     for (let i = 0; i < type.length && !valid; i++) {
-      // 一旦传入值类型与当前遍历到的类型一致，valid就变为true，
-      // 从而退出for循环
-      const assertedType = assertType(value, type[i], vm)
+      const assertedType = assertType(value, type[i], vm) // 真正地进行类型断言。
       expectedTypes.push(assertedType.expectedType || '')
       valid = assertedType.valid
     }
   }
 
-  // 判断expectedTypes是否有有效type
+  // 判断expectedTypes数组中是否有非空type。
   const haveExpectedTypes = expectedTypes.some(t => t)
-  // 提供的prop type包含有效type，但是提供的值并不匹配任何有效type时发出警告
+  // prop.type中有有效类型，但传入的prop值没有匹配，则发出警告，并直接返回。
   if (!valid && haveExpectedTypes) {
     warn(
       getInvalidTypeMessage(name, value, expectedTypes),
@@ -163,7 +163,7 @@ function assertProp (
     return
   }
 
-  // 断言用户提供的validator
+  // 断言用户提供的validator，未通过则发出相关警告。
   const validator = prop.validator
   if (validator) {
     if (!validator(value)) {
@@ -177,6 +177,7 @@ function assertProp (
 
 const simpleCheckRE = /^(String|Number|Boolean|Function|Symbol|BigInt)$/
 
+// 只在assertProp函数中被调用。
 function assertType (value: any, type: Function, vm: ?Component): {
   valid: boolean;
   expectedType: string;
@@ -241,6 +242,7 @@ function getInvalidTypeMessage (name, value, expectedTypes) {
     ` Expected ${expectedTypes.map(capitalize).join(', ')}`
   const expectedType = expectedTypes[0]
   const receivedType = toRawType(value)
+
   // check if we need to specify expected value
   if (
     expectedTypes.length === 1 &&
@@ -250,11 +252,14 @@ function getInvalidTypeMessage (name, value, expectedTypes) {
   ) {
     message += ` with value ${styleValue(value, expectedType)}`
   }
+
   message += `, got ${receivedType} `
+
   // check if we need to specify received value
   if (isExplicable(receivedType)) {
     message += `with value ${styleValue(value, receivedType)}.`
   }
+
   return message
 }
 
