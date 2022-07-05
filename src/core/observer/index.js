@@ -34,7 +34,8 @@ const arrayKeys = Object.getOwnPropertyNames(arrayMethods)
 // 2. validateProp方法（src/core/util/props.js文件中）
 export let shouldObserve: boolean = true
 
-// toggleObserving在四处被完整调用（先toggle到false，再toggle到true）
+// toggleObserving在四处被完整调用（两次toggle形成一组调用）：
+// initInjections、updateChildComponent、initProps、validateProp函数。
 export function toggleObserving (value: boolean) {
   shouldObserve = value
 }

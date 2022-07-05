@@ -330,14 +330,11 @@ function createGetterInvoker(fn) {
 
 function initMethods (vm: Component, methods: Object) {
   const props = vm.$options.props
-  // 遍历methods，做两件事：
-  // 1. 在开发环境下给出相关警告：
-  //    · 必须为function类型
-  //    · 命名不能和props冲突
-  //    · 命名不能和Vue实例预留方法冲突
-  // 2. 将方法添加到当前实例上
+
+  // 遍历methods，做两件事：在开发环境下给出相关警告；在组件实例对象vm上定义同名属性方法。
   for (const key in methods) {
     if (process.env.NODE_ENV !== 'production') {
+      // method必须为function类型；命名不能和props冲突；命名不能和Vue实例预留属性名（以$或_开头）冲突。
       if (typeof methods[key] !== 'function') {
         warn(
           `Method "${key}" has type "${typeof methods[key]}" in the component definition. ` +
@@ -358,6 +355,8 @@ function initMethods (vm: Component, methods: Object) {
         )
       }
     }
+
+    // 在组件实例对象vm上定义同名属性方法。
     vm[key] = typeof methods[key] !== 'function' ? noop : bind(methods[key], vm)
   }
 }

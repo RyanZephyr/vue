@@ -184,7 +184,7 @@ function assertType (value: any, type: Function, vm: ?Component): {
 } {
   let valid
   const expectedType = getType(type)
-  if (simpleCheckRE.test(expectedType)) {
+  if (simpleCheckRE.test(expectedType)) { // type为可以使用typeof操作符检查的类型。
     const t = typeof value
     valid = t === expectedType.toLowerCase()
     // for primitive wrapper objects
@@ -195,7 +195,7 @@ function assertType (value: any, type: Function, vm: ?Component): {
     valid = isPlainObject(value)
   } else if (expectedType === 'Array') {
     valid = Array.isArray(value)
-  } else {
+  } else { // type为自定义类型。
     try {
       valid = value instanceof type
     } catch (e) {
@@ -203,6 +203,7 @@ function assertType (value: any, type: Function, vm: ?Component): {
       valid = false;
     }
   }
+
   return {
     valid,
     expectedType
