@@ -1,7 +1,5 @@
 /* @flow */
-// 在运行时版本的Vue构造函数的基础上：
-// 重写Vue.prototype.$mount方法
-// 向Vue函数对象添加compile静态方法
+// 在运行时版本的Vue构造函数的基础上：重写Vue.prototype.$mount方法；向Vue函数对象添加compile静态方法。
 
 import config from 'core/config'
 import { warn, cached } from 'core/util/index'

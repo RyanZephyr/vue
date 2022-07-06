@@ -19,18 +19,18 @@ function createFunction (code, errors) {
 }
 
 export function createCompileToFunctionFn (compile: Function): Function {
-  const cache = Object.create(null)
+  const cache = Object.create(null) // 模板-编译结果缓存。
 
   return function compileToFunctions (
     template: string,
     options?: CompilerOptions,
     vm?: Component
   ): CompiledFunctionResult {
-    options = extend({}, options)
-    const warn = options.warn || baseWarn
-    delete options.warn
+    options = extend({}, options) // 将options内容混合进新对象中并赋给options引用。
+    const warn = options.warn || baseWarn // 基于options.warn或baseWarn定义warn常量。
+    delete options.warn // 移除options.warn属性。
 
-    /* istanbul ignore if */
+    // 开发环境下，检测new Function('return 1')这样的语法是否可用，不可用则发出警告（模板编译器依赖这种语法）。
     if (process.env.NODE_ENV !== 'production') {
       // detect possible CSP restriction
       try {
@@ -98,7 +98,6 @@ export function createCompileToFunctionFn (compile: Function): Function {
     // check function generation errors.
     // this should only happen if there is a bug in the compiler itself.
     // mostly for codegen development use
-    /* istanbul ignore if */
     if (process.env.NODE_ENV !== 'production') {
       if ((!compiled.errors || !compiled.errors.length) && fnGenErrors.length) {
         warn(
