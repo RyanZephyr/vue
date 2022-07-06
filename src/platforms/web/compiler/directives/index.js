@@ -7,3 +7,10 @@ export default {
   text,
   html
 }
+
+// export default的内容：
+// {
+//   model: function() {},
+//   html: function() {},
+//   text: function() {},
+// }

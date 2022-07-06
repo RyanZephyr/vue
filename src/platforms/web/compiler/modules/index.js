@@ -7,3 +7,20 @@ export default [
   style,
   model
 ]
+
+// export default的内容：
+// [
+//   {
+//     staticKeys: ['staticClass'],
+//     transformNode,
+//     genData
+//   },
+//   {
+//     staticKeys: ['staticStyle'],
+//     transformNode,
+//     genData
+//   },
+//   {
+//     preTransformNode
+//   }
+// ]

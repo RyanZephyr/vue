@@ -9,6 +9,7 @@ type CompiledFunctionResult = {
   staticRenderFns: Array<Function>;
 };
 
+// 由函数体字符串生成渲染函数：借助new Function('function body')语法实现。
 function createFunction (code, errors) {
   try {
     return new Function(code)
@@ -59,7 +60,7 @@ export function createCompileToFunctionFn (compile: Function): Function {
     // compile
     const compiled = compile(template, options)
 
-    // check compilation errors/tips
+    // check compilation errors/tips 检查由模板字符串生成函数体字符串过程中的错误和提示。
     if (process.env.NODE_ENV !== 'production') {
       if (compiled.errors && compiled.errors.length) {
         if (options.outputSourceRange) {
@@ -95,7 +96,7 @@ export function createCompileToFunctionFn (compile: Function): Function {
       return createFunction(code, fnGenErrors)
     })
 
-    // check function generation errors.
+    // check function generation errors. 检查由函数体字符串生成渲染函数过程中的错误。
     // this should only happen if there is a bug in the compiler itself.
     // mostly for codegen development use
     if (process.env.NODE_ENV !== 'production') {
@@ -108,6 +109,6 @@ export function createCompileToFunctionFn (compile: Function): Function {
       }
     }
 
-    return (cache[key] = res)
+    return (cache[key] = res) // 将结果缓存，返回结果。
   }
 }
