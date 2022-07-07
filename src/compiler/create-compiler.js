@@ -6,21 +6,25 @@ import { createCompileToFunctionFn } from './to-function'
 
 export function createCompilerCreator (baseCompile: Function): Function {
   return function createCompiler (baseOptions: CompilerOptions) {
+    // compile函数主要做三件事：
+    // 基于baseOptions和options生成finalOptions；调用baseCompile函数编译模板；收集错误和提示。
+    // 最后，返回compiled对象，包括生成的AST、收集的错误和提示等。
     function compile (
       template: string,
       options?: CompilerOptions
     ): CompiledResult {
-      const finalOptions = Object.create(baseOptions)
+      const finalOptions = Object.create(baseOptions) // 创建以对象baseOptions为原型的对象finalOptions
       const errors = []
       const tips = []
 
+      // 用于在编译过程中收集错误和提示。
       let warn = (msg, range, tip) => {
         (tip ? tips : errors).push(msg)
       }
 
-      if (options) {
+      // baseOptions + options = finalOptions
+      if (options) { // 此处options为调用compile函数编译模板时传递的选项参数，也即调用compileToFunctions函数时传递的选项参数。
         if (process.env.NODE_ENV !== 'production' && options.outputSourceRange) {
-          // $flow-disable-line
           const leadingSpaceLength = template.match(/^\s*/)[0].length
 
           warn = (msg, range, tip) => {
@@ -58,10 +62,14 @@ export function createCompilerCreator (baseCompile: Function): Function {
 
       finalOptions.warn = warn
 
-      const compiled = baseCompile(template.trim(), finalOptions)
+      // baseCompile函数是createCompileCreator函数的参数，真正地进行模板编译。
+      const compiled = baseCompile(template.trim(), finalOptions) 
+
+      // 开发环境下，检查生成的AST存在的错误，并通过warn函数进行收集。
       if (process.env.NODE_ENV !== 'production') {
-        detectErrors(compiled.ast, warn)
+        detectErrors(compiled.ast, warn) 
       }
+
       compiled.errors = errors
       compiled.tips = tips
       return compiled
