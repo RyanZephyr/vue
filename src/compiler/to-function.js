@@ -57,7 +57,7 @@ export function createCompileToFunctionFn (compile: Function): Function {
       return cache[key]
     }
 
-    // compile
+    // compile：由模板字符串生成函数体字符串。
     const compiled = compile(template, options)
 
     // check compilation errors/tips 检查由模板字符串生成函数体字符串过程中的错误和提示。
@@ -88,7 +88,7 @@ export function createCompileToFunctionFn (compile: Function): Function {
       }
     }
 
-    // turn code into functions
+    // turn code into functions：由函数体字符串生成渲染函数。
     const res = {}
     const fnGenErrors = []
     res.render = createFunction(compiled.render, fnGenErrors)
