@@ -4,12 +4,14 @@ import { extend } from 'shared/util'
 import { detectErrors } from './error-detector'
 import { createCompileToFunctionFn } from './to-function'
 
-// createCompilerCreator函数返回一个函数。
+// createCompilerCreator函数返回createCompiler函数。
 export function createCompilerCreator (baseCompile: Function): Function {
+  // 每个创建出来的compiler（即compile函数）会对应一个baseOptions（创建时提供）；
+  // 在调用compiler时，我们又可以提供一个options，compiler会将options与baseOptions为finalOptions使用。
   return function createCompiler (baseOptions: CompilerOptions) {
     // compile函数主要做三件事：
     // 基于baseOptions和options生成finalOptions；调用baseCompile函数编译模板；收集错误和提示。
-    // 最后，返回compiled对象，包括生成的AST、收集的错误和提示等。
+    // 最后，返回compiled对象，包括生成的ast、render、staticRenderFns、收集的错误和提示等。
     function compile (
       template: string,
       options?: CompilerOptions

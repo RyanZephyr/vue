@@ -24,7 +24,7 @@ export function createCompileToFunctionFn (compile: Function): Function {
 
   return function compileToFunctions (
     template: string,
-    options?: CompilerOptions,
+    options?: CompilerOptions, /* 只在调用compile函数时使用 */
     vm?: Component
   ): CompiledFunctionResult {
     options = extend({}, options) // 将options内容混合进新对象中并赋给options引用。
