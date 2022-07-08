@@ -7,7 +7,7 @@ let div
 function getShouldDecode (href: boolean): boolean {
   div = div || document.createElement('div')
   div.innerHTML = href ? `<a href="\n"/>` : `<div a="\n"/>`
-  return div.innerHTML.indexOf('&#10;') > 0
+  return div.innerHTML.indexOf('&#10;') > 0 // 判断浏览器是否会将属性值中的\n编码为&#10;
 }
 
 // #3663: IE encodes newlines inside attribute values while other browsers don't

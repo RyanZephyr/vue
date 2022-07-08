@@ -15,19 +15,20 @@ import { unicodeRegExp } from 'core/util/lang'
 const attribute = /^\s*([^\s"'<>\/=]+)(?:\s*(=)\s*(?:"([^"]*)"+|'([^']*)'+|([^\s"'=<>`]+)))?/
 const dynamicArgAttribute = /^\s*((?:v-[\w-]+:|@|:|#)\[[^=]+?\][^\s"'<>\/=]*)(?:\s*(=)\s*(?:"([^"]*)"+|'([^']*)'+|([^\s"'=<>`]+)))?/
 const ncname = `[a-zA-Z_][\\-\\.0-9_a-zA-Z${unicodeRegExp.source}]*` // ncname: no colon name，不包含冒号（前缀）的XML标签名称（前缀:标签 的标签部分）。
-const qnameCapture = `((?:${ncname}\\:)?${ncname})` // qname：qualified name，完整的标签名称（前缀:标签）。
-const startTagOpen = new RegExp(`^<${qnameCapture}`)
-const startTagClose = /^\s*(\/?)>/
-const endTag = new RegExp(`^<\\/${qnameCapture}[^>]*>`)
+const qnameCapture = `((?:${ncname}\\:)?${ncname})` // qname：qualified name，完整的标签名称（前缀:标签）。有一个capturing group，捕获完整的标签名称。
+const startTagOpen = new RegExp(`^<${qnameCapture}`) // 匹配开始标签的开头部分。具有qnameCapture的一个capturing group。
+const startTagClose = /^\s*(\/?)>/ // 匹配开始标签的结尾部分。有一个capturing group，捕获开始标签结尾部分的斜杠/。
+const endTag = new RegExp(`^<\\/${qnameCapture}[^>]*>`) // 匹配结束标签。具有qnameCapture的一个capturing group。
 const doctype = /^<!DOCTYPE [^>]+>/i // 匹配DOCTYPE标签。
 // #7298: escape - to avoid being passed as HTML comment when inlined in page：避免将Vue源码直接放在HTML中时，下面这行代码被解析成注释开头（<!--）。
 const comment = /^<!\--/ // 匹配注释节点。
 const conditionalComment = /^<!\[/ // 匹配条件注释节点（条件注释只在IE5-9被支持）。
 
-// Special Elements (can contain anything)
+// Special Elements (can contain anything)：内容被视作纯文本处理的元素
 export const isPlainTextElement = makeMap('script,style,textarea', true)
 const reCache = {}
 
+// decodingMap配合下方encodedAttr和encodedAttrWithNewLines，用于对HTML entity（实体，形如&lt; &#39;）进行解码。
 const decodingMap = {
   '&lt;': '<',
   '&gt;': '>',
@@ -40,34 +41,38 @@ const decodingMap = {
 const encodedAttr = /&(?:lt|gt|quot|amp|#39);/g
 const encodedAttrWithNewLines = /&(?:lt|gt|quot|amp|#39|#10|#9);/g
 
-// #5992
+// #5992：浏览器会忽略<pre>或<textarea>元素内容中出现在最前面的换行符，因此Vue也要实现这一行为。
 const isIgnoreNewlineTag = makeMap('pre,textarea', true)
 const shouldIgnoreFirstNewline = (tag, html) => tag && isIgnoreNewlineTag(tag) && html[0] === '\n'
 
+// 用于解码Attribute值中的HTML entity。
 function decodeAttr (value, shouldDecodeNewlines) {
   const re = shouldDecodeNewlines ? encodedAttrWithNewLines : encodedAttr
   return value.replace(re, match => decodingMap[match])
 }
 
 export function parseHTML (html, options) {
-  const stack = []
+  const stack = [] // 存放未闭合的开始标签的栈
   const expectHTML = options.expectHTML
-  const isUnaryTag = options.isUnaryTag || no
-  const canBeLeftOpenTag = options.canBeLeftOpenTag || no
-  let index = 0
-  let last, lastTag
+  const isUnaryTag = options.isUnaryTag || no // 函数
+  const canBeLeftOpenTag = options.canBeLeftOpenTag || no // 函数
+  let index = 0 // 当前读入位置在原始html中的index
+  let last, lastTag // last：当前未parse的html尾部片段；lastTag：当前栈顶元素
+
   while (html) {
     last = html
-    // Make sure we're not in a plaintext content element like script/style
+
+    // Make sure we're not in a plaintext content element like script/style/textarea：当前在处理 内容被视作纯文本处理的 元素 的内容，则进else；否则进if。
     if (!lastTag || !isPlainTextElement(lastTag)) {
       let textEnd = html.indexOf('<')
+
       if (textEnd === 0) {
         // Comment:
         if (comment.test(html)) {
           const commentEnd = html.indexOf('-->')
 
           if (commentEnd >= 0) {
-            if (options.shouldKeepComment) {
+            if (options.shouldKeepComment) { // 此处的options.shouldKeepComment的值即Vue选项comments的值。
               options.comment(html.substring(4, commentEnd), index, index + commentEnd + 3)
             }
             advance(commentEnd + 3)
@@ -165,6 +170,7 @@ export function parseHTML (html, options) {
       parseEndTag(stackedTag, index - endTagLength, index)
     }
 
+    // html没有被进一步parse，则将html作为纯文本处理，并结束parse。
     if (html === last) {
       options.chars && options.chars(html)
       if (process.env.NODE_ENV !== 'production' && !stack.length && options.warn) {
@@ -177,6 +183,7 @@ export function parseHTML (html, options) {
   // Clean up any remaining tags
   parseEndTag()
 
+  // 剔除已经parse完毕的部分，更新index和html。
   function advance (n) {
     index += n
     html = html.substring(n)
