@@ -1,30 +1,28 @@
-/**
- * Not type-checking this file because it's mostly vendor code.
- */
-
 /*!
  * HTML Parser By John Resig (ejohn.org)
  * Modified by Juriy "kangax" Zaytsev
  * Original code by Erik Arvidsson (MPL-1.1 OR Apache-2.0 OR GPL-2.0-or-later)
  * http://erik.eae.net/simplehtmlparser/simplehtmlparser.js
  */
+// 导出两个函数：isPlainTextElement、parseHTML（词法分析）
 
 import { makeMap, no } from 'shared/util'
 import { isNonPhrasingTag } from 'web/compiler/util'
 import { unicodeRegExp } from 'core/util/lang'
 
 // Regular Expressions for parsing tags and attributes
+// 匹配attribute五个capturing group: (name) (?: (=) (?: (双引号value)|(单引号value)|(无引号value) ))?。
 const attribute = /^\s*([^\s"'<>\/=]+)(?:\s*(=)\s*(?:"([^"]*)"+|'([^']*)'+|([^\s"'=<>`]+)))?/
 const dynamicArgAttribute = /^\s*((?:v-[\w-]+:|@|:|#)\[[^=]+?\][^\s"'<>\/=]*)(?:\s*(=)\s*(?:"([^"]*)"+|'([^']*)'+|([^\s"'=<>`]+)))?/
-const ncname = `[a-zA-Z_][\\-\\.0-9_a-zA-Z${unicodeRegExp.source}]*`
-const qnameCapture = `((?:${ncname}\\:)?${ncname})`
+const ncname = `[a-zA-Z_][\\-\\.0-9_a-zA-Z${unicodeRegExp.source}]*` // ncname: no colon name，不包含冒号（前缀）的XML标签名称（前缀:标签 的标签部分）。
+const qnameCapture = `((?:${ncname}\\:)?${ncname})` // qname：qualified name，完整的标签名称（前缀:标签）。
 const startTagOpen = new RegExp(`^<${qnameCapture}`)
 const startTagClose = /^\s*(\/?)>/
 const endTag = new RegExp(`^<\\/${qnameCapture}[^>]*>`)
-const doctype = /^<!DOCTYPE [^>]+>/i
-// #7298: escape - to avoid being passed as HTML comment when inlined in page
-const comment = /^<!\--/
-const conditionalComment = /^<!\[/
+const doctype = /^<!DOCTYPE [^>]+>/i // 匹配DOCTYPE标签。
+// #7298: escape - to avoid being passed as HTML comment when inlined in page：避免将Vue源码直接放在HTML中时，下面这行代码被解析成注释开头（<!--）。
+const comment = /^<!\--/ // 匹配注释节点。
+const conditionalComment = /^<!\[/ // 匹配条件注释节点（条件注释只在IE5-9被支持）。
 
 // Special Elements (can contain anything)
 export const isPlainTextElement = makeMap('script,style,textarea', true)

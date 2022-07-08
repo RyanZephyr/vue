@@ -18,6 +18,8 @@ export const createCompiler = createCompilerCreator(function baseCompile (
     optimize(ast, options)
   }
   const code = generate(ast, options)
+
+  // ast-抽象语法树 render-渲染函数（函数体字符串） staticRenderFns-静态渲染函数（函数体字符串）
   return {
     ast,
     render: code.render,
