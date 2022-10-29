@@ -2,6 +2,8 @@
 /* globals MutationObserver */
 // 三个变量：isUsingMicroTask、callbacks、pending
 // 三个函数：flushCallbacks、timerFunc、nextTick
+// 导出一个变量：isUsingMicroTask
+// 导出一个函数：nextTick
 
 import { noop } from 'shared/util'
 import { handleError } from './error'
@@ -35,7 +37,7 @@ function flushCallbacks () {
 // where microtasks have too high a priority and fire in between supposedly
 // sequential events (e.g. #4521, #6690, which have workarounds)
 // or even between bubbling of the same event (#6566).
-let timerFunc // 只在nextTick函数中被调用，用于将flushCallbacks函数注册为microtask或macrotask。
+let timerFunc // 是一个函数，只在nextTick函数中被调用，用于将flushCallbacks函数注册为microtask或macrotask。
 
 // The nextTick behavior leverages the microtask queue, which can be accessed
 // via either native Promise.then or MutationObserver.
