@@ -4,6 +4,7 @@
 // 三个函数：flushCallbacks、timerFunc、nextTick
 // 导出一个变量：isUsingMicroTask
 // 导出一个函数：nextTick
+// nextTick被/src/core/observer/scheduler.js文件中的queueWatcher函数调用，用于异步执行更新队列。
 
 import { noop } from 'shared/util'
 import { handleError } from './error'

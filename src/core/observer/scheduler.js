@@ -1,8 +1,9 @@
 /* @flow */
 
-// 导出常量MAX_UPDATE_COUNT，变量currentFlushTimestamp，
-// 函数queueWatcher和queueActivatedComponent
-// 本文件中除了两个导出函数外，所有函数都只在flushSchedulerQueue函数中被调用；
+// 导出一个常量：MAX_UPDATE_COUNT
+// 导出一个变量：currentFlushTimestamp
+// 导出两个函数：queueWatcher、queueActivatedComponent
+// 本文件中除了两个导出函数外的所有函数都只在flushSchedulerQueue函数中被调用；
 // flushSchedulerQueue函数只在queueWatcher函数中被调用。
 
 import type Watcher from './watcher'
@@ -180,7 +181,7 @@ function callActivatedHooks (queue) {
  * Jobs with duplicate IDs will be skipped unless it's
  * pushed when the queue is being flushed.
  */
-// 只在Watcher类的update函数中被调用，将传入watcher放入异步更新队列。
+// 只在Watcher类的update函数中被调用，将传入的watcher放入异步更新队列。
 export function queueWatcher (watcher: Watcher) {
   const id = watcher.id
 

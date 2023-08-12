@@ -1,4 +1,5 @@
 /* @flow */
+// 整个文件用于创建AST。
 
 import he from 'he'
 import { parseHTML } from './html-parser'
@@ -22,12 +23,12 @@ import {
 } from '../helpers'
 
 export const onRE = /^@|^v-on:/
-export const dirRE = process.env.VBIND_PROP_SHORTHAND
-  ? /^v-|^@|^:|^\.|^#/
-  : /^v-|^@|^:|^#/
-export const forAliasRE = /([\s\S]*?)\s+(?:in|of)\s+([\s\S]*)/
-export const forIteratorRE = /,([^,\}\]]*)(?:,([^,\}\]]*))?$/
-const stripParensRE = /^\(|\)$/g
+export const dirRE = process.env.VBIND_PROP_SHORTHAND // directives的RE。
+  ? /^v-|^@|^:|^\.|^#/ // .表示修饰符（modifiers）。
+  : /^v-|^@|^:|^#/ // :是v-bind的缩写；#是v-slot的简写。
+export const forAliasRE = /([\s\S]*?)\s+(?:in|of)\s+([\s\S]*)/ // 匹配v-for的值（item in|of items），有两个capture group（捕获item和items）；?表示惰性匹配（匹配尽可能少的字符）。
+export const forIteratorRE = /,([^,\}\]]*)(?:,([^,\}\]]*))?$/ // 匹配forAliasRE的第一个capture group的结果；有两个capture group，对应v-for可能存在的第二、第三个参数。
+const stripParensRE = /^\(|\)$/g // 匹配作为开头的'('或作为结尾的')'；用于除去开头和结尾的括号。
 const dynamicArgRE = /^\[.*\]$/
 
 const argRE = /:(.*)$/
@@ -57,6 +58,7 @@ let platformMustUseProp
 let platformGetTagNamespace
 let maybeComponent
 
+// 为DOM元素创建AST节点（描述对象）。
 export function createASTElement (
   tag: string,
   attrs: Array<ASTAttr>,
@@ -101,7 +103,7 @@ export function parse (
   const stack = []
   const preserveWhitespace = options.preserveWhitespace !== false
   const whitespaceOption = options.whitespace
-  let root
+  let root // AST
   let currentParent
   let inVPre = false
   let inPre = false
@@ -398,7 +400,7 @@ export function parse (
       }
     }
   })
-  return root
+  return root // 返回最终生成的AST
 }
 
 function processPre (el) {

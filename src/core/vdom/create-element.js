@@ -33,6 +33,8 @@ export function createElement (
   normalizationType: any,
   alwaysNormalize: boolean
 ): VNode | Array<VNode> {
+  // 如果data是数组类型或原始类型，则说明本次调用只想传入tag和children，
+  // 因此把data值赋给children，让后把data设为undefined。
   if (Array.isArray(data) || isPrimitive(data)) {
     normalizationType = children
     children = data
